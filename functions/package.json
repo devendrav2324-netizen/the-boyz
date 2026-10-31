@@ -1,0 +1,20 @@
+{
+  "name": "hostel-attendance-functions",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test:rules": "firebase --config ../firebase.json emulators:exec --project demo-hostel-attendance --only firestore \"node --test tests/firestore.rules.test.mjs\""
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.2"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.1.0",
+    "firebase-tools": "^13.29.2"
+  }
+}

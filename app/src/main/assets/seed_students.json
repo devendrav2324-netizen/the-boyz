@@ -1,0 +1,1883 @@
+{
+  "wings": [
+    "FF/01",
+    "FF/02",
+    "FF/03",
+    "FF/04",
+    "FF/05",
+    "FF/06",
+    "FF/07",
+    "GF/01",
+    "GF/02",
+    "GF/03",
+    "GF/04",
+    "SF/01",
+    "SF/02"
+  ],
+  "students": [
+    {
+      "sno": "1",
+      "name": "KRISH KUMAR SINGH",
+      "roomNumber": "GF/01/01",
+      "wing": "GF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "2",
+      "name": "HITESHWAR",
+      "roomNumber": "GF/01/01",
+      "wing": "GF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "3",
+      "name": "CHANDAN KUMAR SAO",
+      "roomNumber": "GF/01/01",
+      "wing": "GF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "4",
+      "name": "SHIVENDRA SINGH",
+      "roomNumber": "GF/01/01",
+      "wing": "GF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "5",
+      "name": "MUKESH KUMAR SAHU",
+      "roomNumber": "GF/01/02",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "6",
+      "name": "KHILESH KUMAR",
+      "roomNumber": "GF/01/02",
+      "wing": "GF/01",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "7",
+      "name": "NOMIS DEWANGAN",
+      "roomNumber": "GF/01/02",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "8",
+      "name": "AYUSH KUMAR DEWANGAN",
+      "roomNumber": "GF/01/02",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "9",
+      "name": "ANITESH SINGH CHANDEL",
+      "roomNumber": "GF/01/03",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "10",
+      "name": "GOPESHWAR",
+      "roomNumber": "GF/01/03",
+      "wing": "GF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "11",
+      "name": "MAMRAY RATRE",
+      "roomNumber": "GF/01/03",
+      "wing": "GF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "12",
+      "name": "INDRAJEET RATRE",
+      "roomNumber": "GF/01/03",
+      "wing": "GF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "13",
+      "name": "OM DEWANGAN",
+      "roomNumber": "GF/01/04",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "14",
+      "name": "CHITRANG MAHER",
+      "roomNumber": "GF/01/04",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "15",
+      "name": "SEEMANT JANGDE",
+      "roomNumber": "GF/01/04",
+      "wing": "GF/01",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "16",
+      "name": "SANDEEP SAHU",
+      "roomNumber": "GF/01/04",
+      "wing": "GF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "17",
+      "name": "TARUN VERMA",
+      "roomNumber": "GF/01/05",
+      "wing": "GF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "18",
+      "name": "NITISH KHUNTE",
+      "roomNumber": "GF/01/05",
+      "wing": "GF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "19",
+      "name": "PRAKHAR DARRO",
+      "roomNumber": "GF/01/05",
+      "wing": "GF/01",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "20",
+      "name": "TILAK SAHU",
+      "roomNumber": "GF/01/05",
+      "wing": "GF/01",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "21",
+      "name": "VAIBHAV PRATAP",
+      "roomNumber": "GF/01/06",
+      "wing": "GF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "22",
+      "name": "GRISH SURYAWANSHI",
+      "roomNumber": "GF/01/06",
+      "wing": "GF/01",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "23",
+      "name": "LAV KOTHARI",
+      "roomNumber": "GF/01/06",
+      "wing": "GF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "24",
+      "name": "RISHI KUMAR SEWTA",
+      "roomNumber": "GF/01/06",
+      "wing": "GF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "25",
+      "name": "PRAMOD KUMAR MARKAM",
+      "roomNumber": "GF/02/07",
+      "wing": "GF/02",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "26",
+      "name": "AYUSH SINGH",
+      "roomNumber": "GF/02/07",
+      "wing": "GF/02",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "27",
+      "name": "PUSHKAR PATEL",
+      "roomNumber": "GF/02/08",
+      "wing": "GF/02",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "28",
+      "name": "DEVRAJ KUNJAM",
+      "roomNumber": "GF/02/08",
+      "wing": "GF/02",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "29",
+      "name": "MANOJ KUMAR",
+      "roomNumber": "GF/02/09",
+      "wing": "GF/02",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "30",
+      "name": "SATYA PRAKASH",
+      "roomNumber": "GF/02/09",
+      "wing": "GF/02",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "31",
+      "name": "JATIN LAHRE",
+      "roomNumber": "GF/02/10",
+      "wing": "GF/02",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "32",
+      "name": "SUYESH THAKUR",
+      "roomNumber": "GF/02/10",
+      "wing": "GF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "33",
+      "name": "NIRAJ KUMAR",
+      "roomNumber": "GF/02/11",
+      "wing": "GF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "34",
+      "name": "CHANDAN",
+      "roomNumber": "GF/02/11",
+      "wing": "GF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "35",
+      "name": "ROHIT MICHA",
+      "roomNumber": "GF/02/12",
+      "wing": "GF/02",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "36",
+      "name": "HARSH YADAV",
+      "roomNumber": "GF/02/12",
+      "wing": "GF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "37",
+      "name": "YESH KHUNTE",
+      "roomNumber": "GF/02/13",
+      "wing": "GF/02",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "38",
+      "name": "AARIZ AAMIN KHAN",
+      "roomNumber": "GF/02/13",
+      "wing": "GF/02",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "39",
+      "name": "SUJAL RANGARI",
+      "roomNumber": "GF/02/14",
+      "wing": "GF/02",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "40",
+      "name": "DIPANSHU RANGARI",
+      "roomNumber": "GF/02/14",
+      "wing": "GF/02",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "43",
+      "name": "KHILESHWAR BHUARYA",
+      "roomNumber": "GF/03/16",
+      "wing": "GF/03",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "44",
+      "name": "KUNAL CHOUDHARY",
+      "roomNumber": "GF/03/16",
+      "wing": "GF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "45",
+      "name": "SHIVSM RATHORE",
+      "roomNumber": "GF/03/17",
+      "wing": "GF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "46",
+      "name": "AYUSH KUMAR RATHORE",
+      "roomNumber": "GF/03/17",
+      "wing": "GF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "47",
+      "name": "SUSWHANT KUMAR",
+      "roomNumber": "GF/03/18",
+      "wing": "GF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "48",
+      "name": "CHANDRAPRAKASH",
+      "roomNumber": "GF/03/18",
+      "wing": "GF/03",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "49",
+      "name": "GULSHAN KUMAR SAHU",
+      "roomNumber": "GF/03/19",
+      "wing": "GF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "50",
+      "name": "YESHU KUMAR SAHU",
+      "roomNumber": "GF/03/19",
+      "wing": "GF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "51",
+      "name": "ISAN CHANDRAKER",
+      "roomNumber": "GF/03/20",
+      "wing": "GF/03",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "52",
+      "name": "SATYAM CHANDRAKAR",
+      "roomNumber": "GF/03/20",
+      "wing": "GF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "53",
+      "name": "KUNAL SAHU",
+      "roomNumber": "GF/03/21",
+      "wing": "GF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "54",
+      "name": "ANURAG RANA",
+      "roomNumber": "GF/03/21",
+      "wing": "GF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "55",
+      "name": "FRANCIS TURKEY",
+      "roomNumber": "GF/03/22",
+      "wing": "GF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "56",
+      "name": "KHILESHWAR JANAGDE",
+      "roomNumber": "GF/03/22",
+      "wing": "GF/03",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "57",
+      "name": "VISHAL KUMAR",
+      "roomNumber": "GF/04/23",
+      "wing": "GF/04",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "58",
+      "name": "VIVEK DHRUW",
+      "roomNumber": "GF/04/23",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "59",
+      "name": "AISHWARYA DHARAI",
+      "roomNumber": "GF/04/23",
+      "wing": "GF/04",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "60",
+      "name": "PUSPRAJ BHARATDWAJ",
+      "roomNumber": "GF/04/23",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "61",
+      "name": "TEVENDRA KUMAR NAGVANSHI",
+      "roomNumber": "GF/04/24",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "62",
+      "name": "TRIVENDRA KUMAR",
+      "roomNumber": "GF/04/24",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "63",
+      "name": "DHANRAJ CHANDRAVANSHI",
+      "roomNumber": "GF/04/24",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "64",
+      "name": "MONIT THAKUR",
+      "roomNumber": "GF/04/24",
+      "wing": "GF/04",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "65",
+      "name": "CHAITANYA KUMAR",
+      "roomNumber": "GF/04/25",
+      "wing": "GF/04",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "66",
+      "name": "LEKHRAM THAKUR",
+      "roomNumber": "GF/04/25",
+      "wing": "GF/04",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "67",
+      "name": "RAKESH KUMAR",
+      "roomNumber": "GF/04/25",
+      "wing": "GF/04",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "68",
+      "name": "ANANYA DEV PARTETI",
+      "roomNumber": "GF/04/25",
+      "wing": "GF/04",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "69",
+      "name": "TANMAY LAKRA",
+      "roomNumber": "GF/04/26",
+      "wing": "GF/04",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "70",
+      "name": "BHUPESH DEWANGAN",
+      "roomNumber": "GF/04/26",
+      "wing": "GF/04",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "71",
+      "name": "JITENDRA SAHU",
+      "roomNumber": "GF/04/26",
+      "wing": "GF/04",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "72",
+      "name": "HARSH KUMAR SAHU",
+      "roomNumber": "GF/04/26",
+      "wing": "GF/04",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "73",
+      "name": "SUBODH KUMAR DHIRHE",
+      "roomNumber": "GF/04/27",
+      "wing": "GF/04",
+      "branch": "CSE (DATA)",
+      "year": "1ST"
+    },
+    {
+      "sno": "74",
+      "name": "MUKESH DEWANGAN",
+      "roomNumber": "GF/04/27",
+      "wing": "GF/04",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "75",
+      "name": "VEDAVYAS SAHU",
+      "roomNumber": "GF/04/27",
+      "wing": "GF/04",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "76",
+      "name": "VIJAY SINHA",
+      "roomNumber": "GF/04/27",
+      "wing": "GF/04",
+      "branch": "CSE (DATA)",
+      "year": "1ST"
+    },
+    {
+      "sno": "77",
+      "name": "BHAVESH KUMAR THAKUR",
+      "roomNumber": "FF/01/01",
+      "wing": "FF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "78",
+      "name": "AYUSH PRADHAN",
+      "roomNumber": "FF/01/01",
+      "wing": "FF/01",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "79",
+      "name": "RITESH KUMAR YADAV",
+      "roomNumber": "FF/01/01",
+      "wing": "FF/01",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "80",
+      "name": "SATYAM KUMBHKAR",
+      "roomNumber": "FF/01/01",
+      "wing": "FF/01",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "81",
+      "name": "NIKESH TOPPO",
+      "roomNumber": "FF/01/02",
+      "wing": "FF/01",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "82",
+      "name": "ROOM PRASAD",
+      "roomNumber": "FF/01/02",
+      "wing": "FF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "83",
+      "name": "PIYUSH SAH",
+      "roomNumber": "FF/01/03",
+      "wing": "FF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "84",
+      "name": "HIMANSHU NETAM",
+      "roomNumber": "FF/01/03",
+      "wing": "FF/01",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "85",
+      "name": "VIVEKANAND",
+      "roomNumber": "FF/01/04",
+      "wing": "FF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "86",
+      "name": "DHARMY",
+      "roomNumber": "FF/01/04",
+      "wing": "FF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "87",
+      "name": "SWASTIK DARSHAN",
+      "roomNumber": "FF/01/05",
+      "wing": "FF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "88",
+      "name": "PAWAN DEEP LAKRA",
+      "roomNumber": "FF/01/05",
+      "wing": "FF/01",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "89",
+      "name": "KEDAR NAIK",
+      "roomNumber": "FF/01/06",
+      "wing": "FF/01",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "90",
+      "name": "AASHISH KUMAR BANJARE",
+      "roomNumber": "FF/01/06",
+      "wing": "FF/01",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "91",
+      "name": "GOPAL BARIHA",
+      "roomNumber": "FF/02/07",
+      "wing": "FF/02",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "92",
+      "name": "KRITIK SINGH",
+      "roomNumber": "FF/02/07",
+      "wing": "FF/02",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "93",
+      "name": "KSITIZE PRAJAPATI",
+      "roomNumber": "FF/02/07",
+      "wing": "FF/02",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "94",
+      "name": "DIVYANSHU SAHU",
+      "roomNumber": "FF/02/07",
+      "wing": "FF/02",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "95",
+      "name": "YUMAN",
+      "roomNumber": "FF/02/08",
+      "wing": "FF/02",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "96",
+      "name": "PUNESHWAR",
+      "roomNumber": "FF/02/08",
+      "wing": "FF/02",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "97",
+      "name": "BHUPENDRA",
+      "roomNumber": "FF/02/09",
+      "wing": "FF/02",
+      "branch": "MECH",
+      "year": "2ND"
+    },
+    {
+      "sno": "98",
+      "name": "RUDRA CHANDARA",
+      "roomNumber": "FF/02/09",
+      "wing": "FF/02",
+      "branch": "EEE",
+      "year": ""
+    },
+    {
+      "sno": "99",
+      "name": "OMKARESHWAR MARKAM",
+      "roomNumber": "FF/02/10",
+      "wing": "FF/02",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "100",
+      "name": "PANKAJ SINGH",
+      "roomNumber": "FF/02/10",
+      "wing": "FF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "101",
+      "name": "DAKSH PRAJAPATI",
+      "roomNumber": "FF/02/11",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "102",
+      "name": "DEVENDRA",
+      "roomNumber": "FF/02/11",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "103",
+      "name": "BHEV RAJ GAWD",
+      "roomNumber": "FF/02/12",
+      "wing": "FF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "104",
+      "name": "GHANSHYAM",
+      "roomNumber": "FF/02/12",
+      "wing": "FF/02",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "105",
+      "name": "NEHUL SAO",
+      "roomNumber": "FF/02/13",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "106",
+      "name": "TUSHAR POYAM",
+      "roomNumber": "FF/02/13",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "107",
+      "name": "BHAVESH KUMAR",
+      "roomNumber": "FF/02/14",
+      "wing": "FF/02",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "108",
+      "name": "TARPAN KUMAR",
+      "roomNumber": "FF/02/14",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "109",
+      "name": "DEVWRATH YADAV",
+      "roomNumber": "FF/02/15",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "110",
+      "name": "HARENDRA KUNJAM",
+      "roomNumber": "FF/02/15",
+      "wing": "FF/02",
+      "branch": "",
+      "year": "1ST"
+    },
+    {
+      "sno": "111",
+      "name": "KAMLESH KASHYAP",
+      "roomNumber": "FF/02/16",
+      "wing": "FF/02",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "112",
+      "name": "AJAY KUMAR BAGHEL",
+      "roomNumber": "FF/02/16",
+      "wing": "FF/02",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "113",
+      "name": "PRATIK CHOUBEY",
+      "roomNumber": "FF/02/17",
+      "wing": "FF/02",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "114",
+      "name": "MAYANK KUMAR THAKUR",
+      "roomNumber": "FF/02/17",
+      "wing": "FF/02",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "115",
+      "name": "LOKESH",
+      "roomNumber": "FF/03/18",
+      "wing": "FF/03",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "116",
+      "name": "VINAYAK AGRAWAL",
+      "roomNumber": "FF/03/18",
+      "wing": "FF/03",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "117",
+      "name": "BHAVESH SIDAR",
+      "roomNumber": "FF/03/19",
+      "wing": "FF/03",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "118",
+      "name": "NITIN CHAND KURRE",
+      "roomNumber": "FF/03/19",
+      "wing": "FF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "119",
+      "name": "DEEPANSHU MARKAM",
+      "roomNumber": "FF/03/20",
+      "wing": "FF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "120",
+      "name": "UMAKANT",
+      "roomNumber": "FF/03/20",
+      "wing": "FF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "121",
+      "name": "SURYANSH RAI",
+      "roomNumber": "FF/03/21",
+      "wing": "FF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "122",
+      "name": "LALESH KUMAR",
+      "roomNumber": "FF/03/21",
+      "wing": "FF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "123",
+      "name": "VIKAS KUMAR DHRUW",
+      "roomNumber": "FF/03/22",
+      "wing": "FF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "124",
+      "name": "VINAYAK VERMA",
+      "roomNumber": "FF/03/22",
+      "wing": "FF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "125",
+      "name": "SHUBHAM SINGH",
+      "roomNumber": "FF/03/23",
+      "wing": "FF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "126",
+      "name": "NAMAN TANDI",
+      "roomNumber": "FF/03/23",
+      "wing": "FF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "127",
+      "name": "PRINCE ARYAN MINJ",
+      "roomNumber": "FF/03/24",
+      "wing": "FF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "128",
+      "name": "RUDRA PRATAP",
+      "roomNumber": "FF/03/24",
+      "wing": "FF/03",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "129",
+      "name": "SHOURYA SINGH",
+      "roomNumber": "FF/03/25",
+      "wing": "FF/03",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "130",
+      "name": "JAYANT KUMAR",
+      "roomNumber": "FF/03/25",
+      "wing": "FF/03",
+      "branch": "CSE",
+      "year": "1ST"
+    },
+    {
+      "sno": "131",
+      "name": "ARYAN DEVIDE",
+      "roomNumber": "FF/03/26",
+      "wing": "FF/03",
+      "branch": "DS",
+      "year": "1ST"
+    },
+    {
+      "sno": "132",
+      "name": "DEVESH SAHU",
+      "roomNumber": "FF/03/26",
+      "wing": "FF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "133",
+      "name": "AASHISH BHUVAN MAHAT",
+      "roomNumber": "FF/03/27",
+      "wing": "FF/03",
+      "branch": "ET&T",
+      "year": "1ST"
+    },
+    {
+      "sno": "134",
+      "name": "SHUBHAM MIRCHANYA",
+      "roomNumber": "FF/03/27",
+      "wing": "FF/03",
+      "branch": "CIVIL",
+      "year": "1ST"
+    },
+    {
+      "sno": "135",
+      "name": "JITESH VERMA",
+      "roomNumber": "FF/03/28",
+      "wing": "FF/03",
+      "branch": "MECH",
+      "year": "1ST"
+    },
+    {
+      "sno": "136",
+      "name": "AJAY VARMA",
+      "roomNumber": "FF/03/28",
+      "wing": "FF/03",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "137",
+      "name": "SOUMYA",
+      "roomNumber": "FF/04/29",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "138",
+      "name": "ARYAN PATHAK",
+      "roomNumber": "FF/04/29",
+      "wing": "FF/04",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "139",
+      "name": "SANCHIT",
+      "roomNumber": "FF/04/30",
+      "wing": "FF/04",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "140",
+      "name": "SHIVANSHU MISHRA",
+      "roomNumber": "FF/04/30",
+      "wing": "FF/04",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "141",
+      "name": "ISHAN",
+      "roomNumber": "FF/04/31",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "142",
+      "name": "ANURAG SONI",
+      "roomNumber": "FF/04/31",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "143",
+      "name": "PARMESHWAR BHUARYA",
+      "roomNumber": "FF/04/32",
+      "wing": "FF/04",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "144",
+      "name": "PIYUSH",
+      "roomNumber": "FF/04/32",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "145",
+      "name": "VANSHAL",
+      "roomNumber": "FF/04/33",
+      "wing": "FF/04",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "146",
+      "name": "KONARK",
+      "roomNumber": "FF/04/33",
+      "wing": "FF/04",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "147",
+      "name": "NITESH",
+      "roomNumber": "FF/04/34",
+      "wing": "FF/04",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "149",
+      "name": "KESHANT CHANDRAKAR",
+      "roomNumber": "FF/04/35",
+      "wing": "FF/04",
+      "branch": "CES",
+      "year": "2ND"
+    },
+    {
+      "sno": "150",
+      "name": "PRINCE",
+      "roomNumber": "FF/04/35",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "151",
+      "name": "DEVRAJ NEGI",
+      "roomNumber": "FF/04/36",
+      "wing": "FF/04",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "152",
+      "name": "ARYAN RAJPUT",
+      "roomNumber": "FF/04/36",
+      "wing": "FF/04",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "153",
+      "name": "ADITYA VISHWAKARMA",
+      "roomNumber": "FF/04/37",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "154",
+      "name": "SEKHAR PAIKRA",
+      "roomNumber": "FF/04/37",
+      "wing": "FF/04",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "155",
+      "name": "DEV KUMAR",
+      "roomNumber": "FF/04/38",
+      "wing": "FF/04",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "156",
+      "name": "DEV KUMAR",
+      "roomNumber": "FF/04/38",
+      "wing": "FF/04",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "159",
+      "name": "UDIT KUMAR MARKAM",
+      "roomNumber": "FF/04/40",
+      "wing": "FF/04",
+      "branch": "EEE",
+      "year": "1ST"
+    },
+    {
+      "sno": "160",
+      "name": "MANBODH",
+      "roomNumber": "FF/04/40",
+      "wing": "FF/04",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "161",
+      "name": "KUNAL KOSHRE",
+      "roomNumber": "FF/05/41",
+      "wing": "FF/05",
+      "branch": "ET&T",
+      "year": "3RD"
+    },
+    {
+      "sno": "162",
+      "name": "LISHTART DEWANGAN",
+      "roomNumber": "FF/05/41",
+      "wing": "FF/05",
+      "branch": "EEE",
+      "year": "3RD"
+    },
+    {
+      "sno": "163",
+      "name": "ANKIT SONI",
+      "roomNumber": "FF/05/42",
+      "wing": "FF/05",
+      "branch": "CIVIL",
+      "year": "3RD"
+    },
+    {
+      "sno": "164",
+      "name": "KARAN SAHU",
+      "roomNumber": "FF/05/42",
+      "wing": "FF/05",
+      "branch": "ET&T",
+      "year": "3RD"
+    },
+    {
+      "sno": "165",
+      "name": "SAURAV KUMAR PATEL",
+      "roomNumber": "FF/05/43",
+      "wing": "FF/05",
+      "branch": "EEE",
+      "year": "3RD"
+    },
+    {
+      "sno": "166",
+      "name": "VISHESH SAHU",
+      "roomNumber": "FF/05/43",
+      "wing": "FF/05",
+      "branch": "ET&T",
+      "year": "3RD"
+    },
+    {
+      "sno": "167",
+      "name": "DIWAKAR",
+      "roomNumber": "FF/05/44",
+      "wing": "FF/05",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "170",
+      "name": "AMAN SHARAF",
+      "roomNumber": "FF/05/45",
+      "wing": "FF/05",
+      "branch": "EEE",
+      "year": "3RD"
+    },
+    {
+      "sno": "171",
+      "name": "SUBHAM KUMAR",
+      "roomNumber": "FF/05/46",
+      "wing": "FF/05",
+      "branch": "EEE",
+      "year": "3RD"
+    },
+    {
+      "sno": "172",
+      "name": "SUBHAM KUMAR SAHU",
+      "roomNumber": "FF/05/46",
+      "wing": "FF/05",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "173",
+      "name": "HAMESH DEWANGAN",
+      "roomNumber": "FF/05/47",
+      "wing": "FF/05",
+      "branch": "CSE",
+      "year": "3RD"
+    },
+    {
+      "sno": "174",
+      "name": "SIDHARTH VERMA",
+      "roomNumber": "FF/05/47",
+      "wing": "FF/05",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "175",
+      "name": "YOGESH SHAH",
+      "roomNumber": "FF/05/48",
+      "wing": "FF/05",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "176",
+      "name": "DEVENDRA VISHKARMA",
+      "roomNumber": "FF/05/48",
+      "wing": "FF/05",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "177",
+      "name": "SANDEEP KUMAR",
+      "roomNumber": "FF/06/49",
+      "wing": "FF/06",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "178",
+      "name": "DEVENDRA KUMAR",
+      "roomNumber": "FF/06/49",
+      "wing": "FF/06",
+      "branch": "CSE",
+      "year": "3RD"
+    },
+    {
+      "sno": "179",
+      "name": "MILESH SIDAR",
+      "roomNumber": "FF/06/50",
+      "wing": "FF/06",
+      "branch": "CSE",
+      "year": "3RD"
+    },
+    {
+      "sno": "180",
+      "name": "TULESH SIDAR",
+      "roomNumber": "FF/06/50",
+      "wing": "FF/06",
+      "branch": "CSE",
+      "year": ""
+    },
+    {
+      "sno": "181",
+      "name": "HARSH KUMAR VERMA",
+      "roomNumber": "FF/06/51",
+      "wing": "FF/06",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "182",
+      "name": "CHANAKYA SAHU",
+      "roomNumber": "FF/06/51",
+      "wing": "FF/06",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "183",
+      "name": "RISHU THAKUR",
+      "roomNumber": "FF/06/52",
+      "wing": "FF/06",
+      "branch": "CIVIL",
+      "year": "3RD"
+    },
+    {
+      "sno": "184",
+      "name": "DEVWRT SAO",
+      "roomNumber": "FF/06/52",
+      "wing": "FF/06",
+      "branch": "ET&T",
+      "year": "4TH"
+    },
+    {
+      "sno": "185",
+      "name": "PRABATH KUMAR PATEL",
+      "roomNumber": "FF/06/53",
+      "wing": "FF/06",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "187",
+      "name": "JAYANT BANJARE",
+      "roomNumber": "FF/06/54",
+      "wing": "FF/06",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "188",
+      "name": "MUKESH KEVAT",
+      "roomNumber": "FF/06/54",
+      "wing": "FF/06",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "189",
+      "name": "DHARMEND SINGH",
+      "roomNumber": "FF/06/55",
+      "wing": "FF/06",
+      "branch": "CIVIL",
+      "year": "3RD"
+    },
+    {
+      "sno": "201",
+      "name": "HARSHVARDHAN PATEL",
+      "roomNumber": "FF/07/59",
+      "wing": "FF/07",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "202",
+      "name": "SAHASIPAL SINGH",
+      "roomNumber": "FF/07/59",
+      "wing": "FF/07",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "203",
+      "name": "BALRAM THAKUR",
+      "roomNumber": "FF/07/59",
+      "wing": "FF/07",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "204",
+      "name": "VAIBHAV PRATAP SINGH",
+      "roomNumber": "FF/07/59",
+      "wing": "FF/07",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "205",
+      "name": "ABHAY KUMAR BAGHEL",
+      "roomNumber": "FF/07/60",
+      "wing": "FF/07",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "206",
+      "name": "AMANDEEP KUJUR",
+      "roomNumber": "FF/07/60",
+      "wing": "FF/07",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "207",
+      "name": "ASHISH XAXA",
+      "roomNumber": "FF/07/60",
+      "wing": "FF/07",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "208",
+      "name": "SHLESH VIJAY PAIKRA",
+      "roomNumber": "FF/07/60",
+      "wing": "FF/07",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "209",
+      "name": "ANAND KUJUR",
+      "roomNumber": "FF/07/61",
+      "wing": "FF/07",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "210",
+      "name": "AYUSH KUJUR",
+      "roomNumber": "FF/07/61",
+      "wing": "FF/07",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "211",
+      "name": "BHUPESH SINGH",
+      "roomNumber": "FF/07/61",
+      "wing": "FF/07",
+      "branch": "CIVIL",
+      "year": ""
+    },
+    {
+      "sno": "212",
+      "name": "LUCKY NETAM",
+      "roomNumber": "FF/07/61",
+      "wing": "FF/07",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "213",
+      "name": "PARMANAND BAMBDA",
+      "roomNumber": "FF/07/62",
+      "wing": "FF/07",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "214",
+      "name": "TUSHAR DHRUV",
+      "roomNumber": "FF/07/62",
+      "wing": "FF/07",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "215",
+      "name": "PHANENDRA BHUSHAN",
+      "roomNumber": "FF/07/62",
+      "wing": "FF/07",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "217",
+      "name": "KHILESHWAR",
+      "roomNumber": "SF/01/01",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "218",
+      "name": "DEVENDRA VARMA",
+      "roomNumber": "SF/01/01",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "219",
+      "name": "SUJAL SAHU",
+      "roomNumber": "SF/01/02",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "221",
+      "name": "SURAJ KUMAR YADAV",
+      "roomNumber": "SF/01/03",
+      "wing": "SF/01",
+      "branch": "CIVIL",
+      "year": "4TH"
+    },
+    {
+      "sno": "222",
+      "name": "AMAN MEHTA",
+      "roomNumber": "SF/01/03",
+      "wing": "SF/01",
+      "branch": "EEE",
+      "year": "4TH"
+    },
+    {
+      "sno": "223",
+      "name": "ASHISH KUMAR",
+      "roomNumber": "SF/01/04",
+      "wing": "SF/01",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "224",
+      "name": "JOGENDRA KUMAR",
+      "roomNumber": "SF/01/04",
+      "wing": "SF/01",
+      "branch": "CSE",
+      "year": "4TH"
+    },
+    {
+      "sno": "225",
+      "name": "LAKSHMAN PRASHAD PATEL",
+      "roomNumber": "SF/01/05",
+      "wing": "SF/01",
+      "branch": "CIVIL",
+      "year": "4TH"
+    },
+    {
+      "sno": "226",
+      "name": "ABHIJEET SHIVAN",
+      "roomNumber": "SF/01/05",
+      "wing": "SF/01",
+      "branch": "CIVIL",
+      "year": "4TH"
+    },
+    {
+      "sno": "227",
+      "name": "PRAFULL KUMAR GUPTA",
+      "roomNumber": "SF/01/06",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "2ND"
+    },
+    {
+      "sno": "228",
+      "name": "VIVEK BANJARE",
+      "roomNumber": "SF/01/06",
+      "wing": "SF/01",
+      "branch": "",
+      "year": "2ND"
+    },
+    {
+      "sno": "229",
+      "name": "NOHAR SINGH",
+      "roomNumber": "SF/01/07",
+      "wing": "SF/01",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "230",
+      "name": "DEVESH VARMA",
+      "roomNumber": "SF/01/07",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "231",
+      "name": "ADITYA VERMA",
+      "roomNumber": "SF/01/08",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "232",
+      "name": "SWAMMINAND UDDE",
+      "roomNumber": "SF/01/08",
+      "wing": "SF/01",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "233",
+      "name": "NAVEEN",
+      "roomNumber": "SF/01/09",
+      "wing": "SF/01",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "234",
+      "name": "ARDEEP TOPPO",
+      "roomNumber": "SF/01/09",
+      "wing": "SF/01",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "235",
+      "name": "GAGAN JAISWAL",
+      "roomNumber": "SF/01/10",
+      "wing": "SF/01",
+      "branch": "",
+      "year": "3RD"
+    },
+    {
+      "sno": "236",
+      "name": "GAGAN SAHU",
+      "roomNumber": "SF/01/10",
+      "wing": "SF/01",
+      "branch": "EEE",
+      "year": "4TH"
+    },
+    {
+      "sno": "237",
+      "name": "ADITYA SIDHAR",
+      "roomNumber": "SF/01/11",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "238",
+      "name": "KUNAL JATWAR",
+      "roomNumber": "SF/01/11",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "3RD"
+    },
+    {
+      "sno": "239",
+      "name": "LOKESH KUMAR SAHU",
+      "roomNumber": "SF/01/12",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "2ND"
+    },
+    {
+      "sno": "240",
+      "name": "ADITYA BANJARE",
+      "roomNumber": "SF/01/12",
+      "wing": "SF/01",
+      "branch": "MECH",
+      "year": "4TH"
+    },
+    {
+      "sno": "243",
+      "name": "ADITYA NAVRANGE",
+      "roomNumber": "SF/02/14",
+      "wing": "SF/02",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "244",
+      "name": "ADITYA SAHU",
+      "roomNumber": "SF/02/14",
+      "wing": "SF/02",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "245",
+      "name": "MUSKAN NETAM",
+      "roomNumber": "SF/02/15",
+      "wing": "SF/02",
+      "branch": "EEE",
+      "year": "2ND"
+    },
+    {
+      "sno": "246",
+      "name": "HIMANSHU THAKUR",
+      "roomNumber": "SF/02/15",
+      "wing": "SF/02",
+      "branch": "ET&T",
+      "year": "2ND"
+    },
+    {
+      "sno": "247",
+      "name": "SHIVANSH SAHU",
+      "roomNumber": "SF/02/16",
+      "wing": "SF/02",
+      "branch": "CIVIL",
+      "year": "2ND"
+    },
+    {
+      "sno": "248",
+      "name": "CHIRANJIV DHRUV",
+      "roomNumber": "SF/02/16",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "249",
+      "name": "ABHAY SINGH",
+      "roomNumber": "SF/02/17",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "250",
+      "name": "SURYAKANT",
+      "roomNumber": "SF/02/17",
+      "wing": "SF/02",
+      "branch": "MECH",
+      "year": "2ND"
+    },
+    {
+      "sno": "251",
+      "name": "HULESH",
+      "roomNumber": "SF/02/18",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "252",
+      "name": "NOMENDRA",
+      "roomNumber": "SF/02/18",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": ""
+    },
+    {
+      "sno": "253",
+      "name": "NOBAL",
+      "roomNumber": "SF/02/19",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "254",
+      "name": "AMANJEET",
+      "roomNumber": "SF/02/19",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    },
+    {
+      "sno": "255",
+      "name": "ASHISH KUMAR",
+      "roomNumber": "SF/02/20",
+      "wing": "SF/02",
+      "branch": "",
+      "year": ""
+    },
+    {
+      "sno": "256",
+      "name": "MONU TELAM",
+      "roomNumber": "SF/02/20",
+      "wing": "SF/02",
+      "branch": "CSE",
+      "year": "2ND"
+    }
+  ]
+}

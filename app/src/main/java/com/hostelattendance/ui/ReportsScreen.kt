@@ -1,0 +1,926 @@
+package com.hostelattendance.ui
+
+import android.app.DatePickerDialog
+import android.content.Context
+import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.hostelattendance.HostelAttendanceApplication
+import com.hostelattendance.data.export.AttendanceReportPdfGenerator
+import com.hostelattendance.data.local.AttendanceRecordEntity
+import com.hostelattendance.data.repository.AttendanceRepository
+import com.hostelattendance.domain.AttendanceRules
+import com.hostelattendance.domain.AttendanceStatus
+import java.io.File
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
+
+private val dateButtonFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+
+private enum class ReportScope(val label: String) {
+    HOSTEL("Whole hostel"),
+    WING("Individual wing"),
+    STUDENT("Individual student"),
+}
+
+@Composable
+fun ReportsScreen(hostelId: String = "local-installation") {
+    val context = LocalContext.current
+    val application = context.applicationContext as HostelAttendanceApplication
+    ReportsScreen(hostelId = hostelId, repository = application.attendanceRepository)
+}
+
+@Composable
+fun ReportsScreen(
+    hostelId: String,
+    repository: AttendanceRepository,
+) {
+    val context = LocalContext.current
+    val application = context.applicationContext as HostelAttendanceApplication
+    val today = remember { AttendanceRules.today() }
+    var startDateString by rememberSaveable {
+        mutableStateOf(today.minusDays(6).toString())
+    }
+    var endDateString by rememberSaveable {
+        mutableStateOf(today.toString())
+    }
+    val startDate = remember(startDateString) {
+        try { LocalDate.parse(startDateString) } catch (_: Exception) { today.minusDays(6) }
+    }
+    val endDate = remember(endDateString) {
+        try { LocalDate.parse(endDateString) } catch (_: Exception) { today }
+    }
+
+    var selectedScopeName by rememberSaveable { mutableStateOf(ReportScope.HOSTEL.name) }
+    val selectedScope = remember(selectedScopeName) {
+        ReportScope.entries.find { it.name == selectedScopeName } ?: ReportScope.HOSTEL
+    }
+    val wings by repository.observeWings(hostelId).collectAsState(initial = emptyList())
+    var selectedWingId by rememberSaveable { mutableStateOf("") }
+    var wingDropdownExpanded by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedRecordForSideOption by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
+
+    LaunchedEffect(wings.isEmpty()) {
+        if (wings.isEmpty()) {
+            com.hostelattendance.data.sync.FirestoreSyncService.restoreWingsAndStudentsFromFirestore(
+                hostelId,
+                application.database.wingDao(),
+                application.database.studentDao(),
+            )
+            val currentStudents = application.database.studentDao().getAllStudents(hostelId)
+            if (currentStudents.isEmpty()) {
+                com.hostelattendance.data.seed.DatabaseSeeder.seedIfNeeded(context, application.database, hostelId)
+            }
+        }
+    }
+
+    val rawRecords by repository.observeRecordsForDateRange(hostelId, startDate.toString(), endDate.toString())
+        .collectAsState(initial = emptyList())
+
+    LaunchedEffect(hostelId, startDateString, endDateString) {
+        com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceFromFirestore(
+            hostelId = hostelId,
+            sessionDao = application.database.attendanceSessionDao(),
+        )
+        com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+            hostelId = hostelId,
+            startDate = startDate.toString(),
+            endDate = endDate.toString(),
+            sessionDao = application.database.attendanceSessionDao(),
+        )
+    }
+
+    val allStudents by application.studentRepository.observeAllStudents(hostelId)
+        .collectAsState(initial = emptyList())
+
+    val filteredRecords = remember(rawRecords, selectedScope, selectedWingId, searchQuery) {
+        rawRecords.filter { record ->
+            val matchesScope = when (selectedScope) {
+                ReportScope.HOSTEL -> true
+                ReportScope.WING -> selectedWingId.isBlank() || record.wingIdSnapshot == selectedWingId
+                ReportScope.STUDENT -> true
+            }
+            val matchesSearch = searchQuery.isBlank() ||
+                record.rollNumberSnapshot.contains(searchQuery.trim(), ignoreCase = true) ||
+                record.studentNameSnapshot.contains(searchQuery.trim(), ignoreCase = true) ||
+                record.roomNumberSnapshot.contains(searchQuery.trim(), ignoreCase = true)
+
+            matchesScope && matchesSearch
+        }
+    }
+
+    val studentsForPdf = remember(allStudents, filteredRecords, selectedScope, selectedWingId, searchQuery) {
+        val baseList = if (allStudents.isNotEmpty()) {
+            allStudents
+        } else {
+            filteredRecords.distinctBy { it.studentId }.map { rec ->
+                com.hostelattendance.data.local.StudentEntity(
+                    studentId = rec.studentId,
+                    hostelId = rec.hostelId,
+                    rollNumber = rec.rollNumberSnapshot,
+                    normalizedRollNumber = rec.rollNumberSnapshot,
+                    currentWingId = rec.wingIdSnapshot,
+                    currentRoomNumber = rec.roomNumberSnapshot,
+                    studentName = rec.studentNameSnapshot,
+                    branch = null,
+                    year = null,
+                    isActive = true,
+                    createdAtMillis = 0L,
+                    updatedAtMillis = 0L,
+                )
+            }
+        }
+        baseList.filter { student ->
+            val matchesScope = when (selectedScope) {
+                ReportScope.HOSTEL -> true
+                ReportScope.WING -> selectedWingId.isBlank() || student.currentWingId == selectedWingId
+                ReportScope.STUDENT -> true
+            }
+            val matchesSearch = searchQuery.isBlank() ||
+                student.rollNumber.contains(searchQuery.trim(), ignoreCase = true) ||
+                student.studentName.contains(searchQuery.trim(), ignoreCase = true) ||
+                student.currentRoomNumber.contains(searchQuery.trim(), ignoreCase = true)
+
+            matchesScope && matchesSearch
+        }
+    }
+
+    val presentCount = filteredRecords.count { it.status == AttendanceStatus.PRESENT.name }
+    val absentCount = filteredRecords.count { it.status == AttendanceStatus.ABSENT.name }
+    val leaveCount = filteredRecords.count { it.status == AttendanceStatus.LEAVE.name }
+    val notMarkedCount = filteredRecords.count { it.status == AttendanceStatus.NOT_MARKED.name }
+    val totalRecords = filteredRecords.size
+    val totalMarked = presentCount + absentCount + leaveCount
+    val attendanceRate = if (totalMarked > 0) (presentCount * 100) / totalMarked else 0
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+        item(key = "reports_header") {
+            Column {
+                Text(
+                    text = "Attendance Reports",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "${startDate.format(dateButtonFormatter)} – ${endDate.format(dateButtonFormatter)} · ${selectedScope.label}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+
+        // Filters Panel
+        item(key = "reports_filters") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Scope selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ReportScope.entries.forEach { scope ->
+                        val isSelected = selectedScope == scope
+                        val tabInteraction = rememberMotionInteractionSource()
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color(0x33FFFFFF),
+                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                            label = "scopeTabColor_${scope.name}",
+                        )
+                        val textColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                            label = "scopeTextColor_${scope.name}",
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = containerColor,
+                            modifier = Modifier
+                                .weight(1f)
+                                .pressFeedback(tabInteraction, pressedScale = 0.94f)
+                                .clickable(
+                                    interactionSource = tabInteraction,
+                                    indication = null,
+                                ) { selectedScopeName = scope.name },
+                        ) {
+                            Text(
+                                text = when (scope) {
+                                    ReportScope.HOSTEL -> "Hostel"
+                                    ReportScope.WING -> "Wing"
+                                    ReportScope.STUDENT -> "Student"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = textColor,
+                                modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+
+                // Wing selector if Scope == WING
+                AnimatedVisibility(
+                    visible = selectedScope == ReportScope.WING,
+                    enter = expandVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)) + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        val wingSelectInteraction = rememberMotionInteractionSource()
+                        OutlinedButton(
+                            onClick = { wingDropdownExpanded = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pressFeedback(wingSelectInteraction),
+                            interactionSource = wingSelectInteraction,
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            val activeWingName = wings.firstOrNull { it.wingId == selectedWingId }?.name ?: "All Wings"
+                            Text("Wing: $activeWingName")
+                        }
+                        DropdownMenu(
+                            expanded = wingDropdownExpanded,
+                            onDismissRequest = { wingDropdownExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("All Wings") },
+                                onClick = {
+                                    selectedWingId = ""
+                                    wingDropdownExpanded = false
+                                },
+                            )
+                            wings.forEach { wing ->
+                                DropdownMenuItem(
+                                    text = { Text(wing.name) },
+                                    onClick = {
+                                        selectedWingId = wing.wingId
+                                        wingDropdownExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Search field
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search by roll no., name, room") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                )
+            }
+        }
+
+        // Summary Stats Grid
+        item(key = "reports_stats") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    ReportStatItem(label = "Present", count = presentCount, color = Color(0xFF4CAF50))
+                    ReportStatItem(label = "Absent", count = absentCount, color = Color(0xFFE53935))
+                    ReportStatItem(label = "Leave", count = leaveCount, color = Color(0xFFFFA000))
+                    ReportStatItem(label = "Attendance", count = "$attendanceRate%", color = MaterialTheme.colorScheme.primary)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "$totalRecords records found ($notMarkedCount unrecorded)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val exportPdfInteraction = rememberMotionInteractionSource()
+                    Button(
+                        onClick = {
+                            AttendanceReportPdfGenerator().generateAndSharePdf(
+                                context = context,
+                                hostelId = hostelId,
+                                startDate = startDate,
+                                endDate = endDate,
+                                students = studentsForPdf,
+                                records = filteredRecords,
+                                wingName = wings.firstOrNull { it.wingId == selectedWingId }?.name,
+                                filterDescription = if (searchQuery.isNotBlank()) "Search: $searchQuery" else null,
+                            )
+                        },
+                        enabled = studentsForPdf.isNotEmpty(),
+                        interactionSource = exportPdfInteraction,
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.pressFeedback(exportPdfInteraction),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary,
+                        ),
+                    ) {
+                        Text("Export PDF", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        // SECTION: Select Report Date Range
+        item(key = "reports_date_range") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = "Select Report Date Range",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        val daysCount = ChronoUnit.DAYS.between(startDate, endDate) + 1
+                        Text(
+                            text = "$daysCount Days in range (Maximum 15 Days)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    val startInteraction = rememberMotionInteractionSource()
+                    OutlinedButton(
+                        onClick = {
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    val newStart = LocalDate.of(year, month + 1, day)
+                                    startDateString = newStart.toString()
+                                    if (endDate.isBefore(newStart)) {
+                                        endDateString = newStart.toString()
+                                    } else if (ChronoUnit.DAYS.between(newStart, endDate) > 14) {
+                                        endDateString = newStart.plusDays(14).toString()
+                                    }
+                                },
+                                startDate.year,
+                                startDate.monthValue - 1,
+                                startDate.dayOfMonth,
+                            ).show()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .pressFeedback(startInteraction),
+                        interactionSource = startInteraction,
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Start Date",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = startDate.format(dateButtonFormatter),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    val endInteraction = rememberMotionInteractionSource()
+                    OutlinedButton(
+                        onClick = {
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, day ->
+                                    val newEnd = LocalDate.of(year, month + 1, day)
+                                    endDateString = newEnd.toString()
+                                    if (newEnd.isBefore(startDate)) {
+                                        startDateString = newEnd.toString()
+                                    } else if (ChronoUnit.DAYS.between(startDate, newEnd) > 14) {
+                                        startDateString = newEnd.minusDays(14).toString()
+                                    }
+                                },
+                                endDate.year,
+                                endDate.monthValue - 1,
+                                endDate.dayOfMonth,
+                            ).show()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .pressFeedback(endInteraction),
+                        interactionSource = endInteraction,
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "End Date",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = endDate.format(dateButtonFormatter),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Attendance Register List Header
+        item(key = "reports_list_header") {
+            Text(
+                text = "Records (${filteredRecords.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+        }
+
+        // Attendance Register List Items
+        if (filteredRecords.isEmpty()) {
+            item(key = "reports_empty") {
+                GlassPanel(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(24.dp),
+                ) {
+                    Text(
+                        text = "No saved attendance records found for this selection.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                }
+            }
+        } else {
+            items(
+                filteredRecords,
+                key = { it.recordId },
+                contentType = { "report_row" },
+            ) { record ->
+                AttendanceReportRow(
+                    record = record,
+                    modifier = Modifier.animateItem(),
+                    onLongClick = {
+                        selectedRecordForSideOption = record
+                    },
+                )
+            }
+        }
+
+        item(key = "reports_bottom_spacer") {
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    AnimatedVisibility(
+        visible = selectedRecordForSideOption != null,
+        enter = fadeIn(tween(140)),
+        exit = fadeOut(tween(120)),
+    ) {
+        val targetRecord = selectedRecordForSideOption ?: return@AnimatedVisibility
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.58f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { selectedRecordForSideOption = null },
+                ),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            val backdrop = LocalGlobalGlassBackdrop.current
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val sidePanelShape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
+
+            val panelModifier = if (backdrop != null) {
+                Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = 280.dp, max = 340.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+                    .liquidGlassEffect(
+                        backdrop = backdrop,
+                        density = density,
+                        cornerRadius = 28.dp,
+                        blurRadius = 18.dp,
+                        refractionHeightPx = 18f,
+                        refractionAmountPx = 24f,
+                        surfaceColor = Color(0x401E1A29),
+                        specular = com.styropyr0.prismal.specular.PrismalSpecular(
+                            width = 1.dp,
+                            alpha = 0.85f,
+                            style = com.styropyr0.prismal.specular.PrismalSpecularStyle.Ambient,
+                        ),
+                        depthShadow = com.styropyr0.prismal.depth.PrismalDepthShadow(
+                            radius = 28.dp,
+                            color = Color.Black.copy(alpha = 0.50f),
+                        ),
+                    )
+                    .padding(20.dp)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+            } else {
+                Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = 280.dp, max = 340.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {},
+                    )
+                    .shadow(
+                        elevation = 28.dp,
+                        shape = sidePanelShape,
+                        ambientColor = Color.Black.copy(alpha = 0.65f),
+                        spotColor = Color.Black.copy(alpha = 0.85f),
+                    )
+                    .clip(sidePanelShape)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xF02B2636),
+                                Color(0xF51E1A27),
+                                Color(0xF815121D),
+                            ),
+                        ),
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0x99FFFFFF),
+                                Color(0x30FFFFFF),
+                                Color(0x0CFFFFFF),
+                            ),
+                        ),
+                        shape = sidePanelShape,
+                    )
+                    .padding(20.dp)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+            }
+
+            Box(
+                modifier = panelModifier,
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Student Options",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0x25FFFFFF),
+                                modifier = Modifier.clickable { selectedRecordForSideOption = null },
+                            ) {
+                                Text(
+                                    text = "✕",
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0x20FFFFFF),
+                            border = BorderStroke(1.dp, Color(0x28FFFFFF)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    text = targetRecord.studentNameSnapshot,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                )
+                                Text(
+                                    text = "#" + targetRecord.rollNumberSnapshot + " · Room " + targetRecord.roomNumberSnapshot,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = "Wing: " + targetRecord.wingNameSnapshot,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        val studentOptInteraction = rememberMotionInteractionSource()
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pressFeedback(studentOptInteraction)
+                                .clickable(
+                                    interactionSource = studentOptInteraction,
+                                    indication = null,
+                                ) {
+                                    selectedScopeName = ReportScope.STUDENT.name
+                                    searchQuery = targetRecord.rollNumberSnapshot
+                                    selectedRecordForSideOption = null
+                                },
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    text = "check this student",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                )
+                                Text(
+                                    text = "Filter report for this student only",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        val wingOptInteraction = rememberMotionInteractionSource()
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pressFeedback(wingOptInteraction)
+                                .clickable(
+                                    interactionSource = wingOptInteraction,
+                                    indication = null,
+                                ) {
+                                    selectedScopeName = ReportScope.WING.name
+                                    selectedWingId = targetRecord.wingIdSnapshot
+                                    searchQuery = ""
+                                    selectedRecordForSideOption = null
+                                },
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    text = "check his wing",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                )
+                                Text(
+                                    text = "Filter report to " + targetRecord.wingNameSnapshot,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { selectedRecordForSideOption = null },
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color(0x35FFFFFF)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                    ) {
+                        Text("Close", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
+@Composable
+private fun ReportStatItem(label: String, count: Any, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (count is Int) {
+            AnimatedRollingCounter(
+                count = count,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = color,
+            )
+        } else {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = color,
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun AttendanceReportRow(
+    record: AttendanceRecordEntity,
+    modifier: Modifier = Modifier,
+    onLongClick: () -> Unit,
+) {
+    val backdrop = LocalGlobalGlassBackdrop.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val rowInteraction = rememberMotionInteractionSource()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .liquidGlassEffect(
+                backdrop = backdrop,
+                density = density,
+                cornerRadius = 18.dp,
+                blurRadius = 12.dp,
+                refractionHeightPx = 12f,
+                refractionAmountPx = 18f,
+                surfaceColor = Color(0x351F1C2B),
+            )
+            .pressFeedback(rowInteraction, pressedScale = 0.98f)
+            .combinedClickable(
+                interactionSource = rowInteraction,
+                indication = null,
+                onClick = {},
+                onLongClick = onLongClick,
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "#${record.rollNumberSnapshot}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = record.studentNameSnapshot,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${record.localDate} · ${record.wingNameSnapshot} (Room ${record.roomNumberSnapshot})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            val statusColor = when (record.status) {
+                AttendanceStatus.PRESENT.name -> Color(0xFF4CAF50)
+                AttendanceStatus.ABSENT.name -> Color(0xFFE53935)
+                AttendanceStatus.LEAVE.name -> Color(0xFFFFA000)
+                else -> Color(0xFF9E9E9E)
+            }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = statusColor.copy(alpha = 0.2f),
+            ) {
+                Text(
+                    text = record.status,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statusColor,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}

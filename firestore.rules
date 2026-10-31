@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMasterAdmin() {
+      return signedIn() && request.auth.uid == 'ZcAp0gt5OVSC2UeiVDqBmAGjhXD2';
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/user_profiles/$(uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(profilePath(request.auth.uid));
+    }
+
+    function callerProfile() {
+      return get(profilePath(request.auth.uid)).data;
+    }
+
+    function approved() {
+      return isMasterAdmin() || (
+        signedIn() && (
+          !hasProfile() || (
+            callerProfile().approved != false
+            && callerProfile().isActive != false
+          )
+        )
+      );
+    }
+
+    function inHostel(hostelId) {
+      return isMasterAdmin() || (
+        signedIn() && (
+          !hasProfile()
+          || !('hostelId' in callerProfile())
+          || callerProfile().hostelId == hostelId
+        )
+      );
+    }
+
+    function adminFor(hostelId) {
+      return isMasterAdmin() || (
+        inHostel(hostelId)
+        && hasProfile()
+        && callerProfile().role == 'ADMIN'
+        && request.auth.token.admin == true
+        && request.auth.token.hostelId == hostelId
+      );
+    }
+
+    function wingAllowed(wingId) {
+      return isMasterAdmin()
+        || !hasProfile()
+        || callerProfile().role == 'ADMIN'
+        || !('allowedWingIds' in callerProfile())
+        || callerProfile().allowedWingIds.size() == 0
+        || callerProfile().allowedWingIds.hasAny([wingId]);
+    }
+
+    function canReadWing(hostelId, wingId) {
+      return inHostel(hostelId) && wingAllowed(wingId);
+    }
+
+    match /user_profiles/{uid} {
+      allow get: if signedIn() && (
+        request.auth.uid == uid
+        || (resource.data.hostelId is string && adminFor(resource.data.hostelId))
+        || isMasterAdmin()
+      );
+      allow list: if (resource.data.hostelId is string && adminFor(resource.data.hostelId)) || isMasterAdmin();
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && (
+        request.auth.uid == uid
+        || (resource.data.hostelId is string && adminFor(resource.data.hostelId))
+        || isMasterAdmin()
+      );
+      allow delete: if false;
+    }
+
+    match /hostels/{hostelId} {
+      allow get: if inHostel(hostelId);
+      allow list: if isMasterAdmin() || adminFor(hostelId);
+      allow create, update: if isMasterAdmin() || adminFor(hostelId);
+      allow delete: if false;
+
+      match /wings/{wingId} {
+        allow get, list: if inHostel(hostelId);
+        allow create, update: if isMasterAdmin() || adminFor(hostelId);
+        allow delete: if false;
+      }
+
+      match /students/{studentId} {
+        allow get, list: if inHostel(hostelId);
+        allow create, update: if isMasterAdmin() || adminFor(hostelId) || (approved() && callerProfile().canRegisterStudents == true);
+        allow delete: if false;
+      }
+
+      match /attendance_sessions/{sessionId} {
+        allow get, list: if inHostel(hostelId);
+        allow create, update: if isMasterAdmin() || inHostel(hostelId);
+        allow delete: if false;
+      }
+
+      match /attendance_records/{recordId} {
+        allow get, list: if inHostel(hostelId);
+        allow create, update: if isMasterAdmin() || inHostel(hostelId);
+        allow delete: if false;
+      }
+
+      match /audit_events/{eventId} {
+        allow get, list: if adminFor(hostelId);
+        allow create, update: if isMasterAdmin() || adminFor(hostelId);
+        allow delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+.gradle/
+build/
+**/build/
+.idea/
+local.properties
+*.iml
+app/google-services.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/node_modules/
+functions/.env*
+*.service-account.json
+.kotlin/
+scratch/
