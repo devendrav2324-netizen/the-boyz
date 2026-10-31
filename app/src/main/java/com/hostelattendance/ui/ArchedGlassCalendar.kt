@@ -2,6 +2,7 @@ package com.hostelattendance.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -9,6 +10,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -49,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -88,11 +94,6 @@ fun ArchedGlassCalendar(
     val monthName = activeDate.format(DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH))
     val dayNumber = activeDate.dayOfMonth.toString()
 
-    // 7 visible days centered around centerDate
-    val visibleDates = remember(centerDate) {
-        (-3..3).map { centerDate.plusDays(it.toLong()) }
-    }
-
     val backdrop = LocalGlobalGlassBackdrop.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -123,7 +124,7 @@ fun ArchedGlassCalendar(
         modifier = calendarModifier,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Mode Selector: [ Start Date ] [ End Date ]
+        // Mode Selector: [ Start Date ] [ End Date ] with fluid tactile springs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -135,20 +136,36 @@ fun ArchedGlassCalendar(
             val startSelected = activeMode == CalendarSelectionMode.START_DATE
             val startBg by animateColorAsState(
                 targetValue = if (startSelected) Color(0xD024222E) else Color.Transparent,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f),
                 label = "startBg",
             )
             val startText by animateColorAsState(
                 targetValue = if (startSelected) Color.White else Color(0xFF8E8E93),
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                 label = "startText",
             )
+            val startScale by animateFloatAsState(
+                targetValue = if (startSelected) 1.02f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.76f),
+                label = "startScale",
+            )
+            val startInteraction = rememberMotionInteractionSource()
+
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = startBg,
                 border = if (startSelected) BorderStroke(1.dp, Color(0x35FFFFFF)) else null,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { activeMode = CalendarSelectionMode.START_DATE },
+                    .graphicsLayer {
+                        scaleX = startScale
+                        scaleY = startScale
+                    }
+                    .pressFeedback(startInteraction, pressedScale = 0.94f)
+                    .clickable(
+                        interactionSource = startInteraction,
+                        indication = null,
+                    ) { activeMode = CalendarSelectionMode.START_DATE },
             ) {
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
@@ -173,20 +190,36 @@ fun ArchedGlassCalendar(
             val endSelected = activeMode == CalendarSelectionMode.END_DATE
             val endBg by animateColorAsState(
                 targetValue = if (endSelected) Color(0xD024222E) else Color.Transparent,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f),
                 label = "endBg",
             )
             val endText by animateColorAsState(
                 targetValue = if (endSelected) Color.White else Color(0xFF8E8E93),
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                 label = "endText",
             )
+            val endScale by animateFloatAsState(
+                targetValue = if (endSelected) 1.02f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.76f),
+                label = "endScale",
+            )
+            val endInteraction = rememberMotionInteractionSource()
+
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = endBg,
                 border = if (endSelected) BorderStroke(1.dp, Color(0x35FFFFFF)) else null,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { activeMode = CalendarSelectionMode.END_DATE },
+                    .graphicsLayer {
+                        scaleX = endScale
+                        scaleY = endScale
+                    }
+                    .pressFeedback(endInteraction, pressedScale = 0.94f)
+                    .clickable(
+                        interactionSource = endInteraction,
+                        indication = null,
+                    ) { activeMode = CalendarSelectionMode.END_DATE },
             ) {
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
@@ -209,18 +242,23 @@ fun ArchedGlassCalendar(
             }
         }
 
-        // Prominent Header: Month and Day (e.g. "August 23")
+        // Prominent Header: Month and Day with smooth Apple spring slide & fade
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val headerInteraction = rememberMotionInteractionSource()
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable {
+                    .pressFeedback(headerInteraction, pressedScale = 0.96f)
+                    .clickable(
+                        interactionSource = headerInteraction,
+                        indication = null,
+                    ) {
                         android.app.DatePickerDialog(
                             context,
                             { _, year, month, day ->
@@ -253,8 +291,11 @@ fun ArchedGlassCalendar(
             ) {
                 AnimatedContent(
                     targetState = monthName,
-                    transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
-                    label = "monthName",
+                    transitionSpec = {
+                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f)) { h -> h / 2 } + fadeIn(tween(220)))
+                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f)) { h -> -h / 2 } + fadeOut(tween(180)))
+                    },
+                    label = "monthNameAnim",
                 ) { m ->
                     Text(
                         text = m,
@@ -265,8 +306,11 @@ fun ArchedGlassCalendar(
                 }
                 AnimatedContent(
                     targetState = dayNumber,
-                    transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
-                    label = "dayNumber",
+                    transitionSpec = {
+                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.78f)) { h -> h / 2 } + fadeIn(tween(220)))
+                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.78f)) { h -> -h / 2 } + fadeOut(tween(180)))
+                    },
+                    label = "dayNumberAnim",
                 ) { d ->
                     Text(
                         text = d,
@@ -277,25 +321,36 @@ fun ArchedGlassCalendar(
                 }
             }
 
-            // Week Navigation Arrows
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Week Navigation Arrows with tactile bounce
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val prevInteraction = rememberMotionInteractionSource()
                 Surface(
                     shape = CircleShape,
                     color = Color(0x24FFFFFF),
                     modifier = Modifier
                         .size(36.dp)
-                        .clickable { centerDate = centerDate.minusWeeks(1) },
+                        .pressFeedback(prevInteraction, pressedScale = 0.86f)
+                        .clickable(
+                            interactionSource = prevInteraction,
+                            indication = null,
+                        ) { centerDate = centerDate.minusWeeks(1) },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text("‹", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+
+                val nextInteraction = rememberMotionInteractionSource()
                 Surface(
                     shape = CircleShape,
                     color = Color(0x24FFFFFF),
                     modifier = Modifier
                         .size(36.dp)
-                        .clickable { centerDate = centerDate.plusWeeks(1) },
+                        .pressFeedback(nextInteraction, pressedScale = 0.86f)
+                        .clickable(
+                            interactionSource = nextInteraction,
+                            indication = null,
+                        ) { centerDate = centerDate.plusWeeks(1) },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text("›", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -311,7 +366,7 @@ fun ArchedGlassCalendar(
                 .height(96.dp),
             contentAlignment = Alignment.Center,
         ) {
-            // Arched Ribbon Canvas Background
+            // Arched Ribbon Canvas Background with subtle specular highlight
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
@@ -366,104 +421,143 @@ fun ArchedGlassCalendar(
                 )
             }
 
-            // 7 Days positioned along the curve
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                visibleDates.forEachIndexed { index, date ->
-                    // Curvature vertical offset (arch peak in center: index = 3)
-                    val normalizedDist = (index - 3) / 3f
-                    val archOffsetDp = (-8f * (1f - normalizedDist * normalizedDist)).dp
+            // Animated Horizontal Week Slide Transition
+            AnimatedContent(
+                targetState = centerDate,
+                transitionSpec = {
+                    if (targetState.isAfter(initialState)) {
+                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (w * 0.40f).toInt() } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (-w * 0.40f).toInt() } + fadeOut(tween(180)))
+                    } else {
+                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (-w * 0.40f).toInt() } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (w * 0.40f).toInt() } + fadeOut(tween(180)))
+                    }
+                },
+                label = "weekSlideAnim",
+            ) { currentCenter ->
+                val currentVisibleDates = remember(currentCenter) {
+                    (-3..3).map { currentCenter.plusDays(it.toLong()) }
+                }
 
-                    val isSelected = (date == activeDate)
-                    val isInRange = !date.isBefore(startDate) && !date.isAfter(endDate)
-                    val isToday = (date == LocalDate.now())
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    currentVisibleDates.forEachIndexed { index, date ->
+                        val normalizedDist = (index - 3) / 3f
+                        val archOffsetDp = (-8f * (1f - normalizedDist * normalizedDist)).dp
 
-                    val dayOfWeek = date.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
-                    val dayNum = date.dayOfMonth.toString()
+                        val isSelected = (date == activeDate)
+                        val isInRange = !date.isBefore(startDate) && !date.isAfter(endDate)
+                        val dayOfWeek = date.format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH))
+                        val dayNum = date.dayOfMonth.toString()
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .offset(y = archOffsetDp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) {
-                                if (activeMode == CalendarSelectionMode.START_DATE) {
-                                    val newStart = date
-                                    var newEnd = endDate
-                                    if (newEnd.isBefore(newStart)) {
-                                        newEnd = newStart
-                                    } else if (ChronoUnit.DAYS.between(newStart, newEnd) >= maxRangeDays) {
-                                        newEnd = newStart.plusDays((maxRangeDays - 1).toLong())
-                                    }
-                                    onDateRangeSelected(newStart, newEnd)
-                                } else {
-                                    val newEnd = date
-                                    var newStart = startDate
-                                    if (newEnd.isBefore(newStart)) {
-                                        newStart = newEnd
-                                    } else if (ChronoUnit.DAYS.between(newStart, newEnd) >= maxRangeDays) {
-                                        newStart = newEnd.minusDays((maxRangeDays - 1).toLong())
-                                    }
-                                    onDateRangeSelected(newStart, newEnd)
-                                }
+                        // Smoothly animated properties for selected glowing badge & tactile spring
+                        val selectedScale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.10f else 1f,
+                            animationSpec = spring(dampingRatio = 0.70f, stiffness = 220f),
+                            label = "selectedScale_${date}",
+                        )
+                        val glowElevation by animateDpAsState(
+                            targetValue = if (isSelected) 10.dp else 0.dp,
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            label = "glowElevation_${date}",
+                        )
+                        val rangeBgColor by animateColorAsState(
+                            targetValue = when {
+                                isSelected -> Color.Transparent
+                                isInRange -> Color(0x35E91E63)
+                                else -> Color.Transparent
                             },
-                    ) {
-                        // Weekday label
-                        Text(
-                            text = dayOfWeek,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Color.White else Color(0xFF9E9E9E),
+                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                            label = "rangeBg_${date}",
+                        )
+                        val dateTextColor by animateColorAsState(
+                            targetValue = when {
+                                isSelected -> Color.White
+                                isInRange -> Color(0xFFFF80AB)
+                                else -> Color.White.copy(alpha = 0.88f)
+                            },
+                            animationSpec = tween(durationMillis = 200),
+                            label = "dateTextColor_${date}",
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        val dayInteraction = rememberMotionInteractionSource()
 
-                        // Date Pill / Glowing Circle
-                        if (isSelected) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .offset(y = archOffsetDp)
+                                .graphicsLayer {
+                                    scaleX = selectedScale
+                                    scaleY = selectedScale
+                                }
+                                .pressFeedback(dayInteraction, pressedScale = 0.90f)
+                                .clickable(
+                                    interactionSource = dayInteraction,
+                                    indication = null,
+                                ) {
+                                    if (activeMode == CalendarSelectionMode.START_DATE) {
+                                        val newStart = date
+                                        var newEnd = endDate
+                                        if (newEnd.isBefore(newStart)) {
+                                            newEnd = newStart
+                                        } else if (ChronoUnit.DAYS.between(newStart, newEnd) >= maxRangeDays) {
+                                            newEnd = newStart.plusDays((maxRangeDays - 1).toLong())
+                                        }
+                                        onDateRangeSelected(newStart, newEnd)
+                                    } else {
+                                        val newEnd = date
+                                        var newStart = startDate
+                                        if (newEnd.isBefore(newStart)) {
+                                            newStart = newEnd
+                                        } else if (ChronoUnit.DAYS.between(newStart, newEnd) >= maxRangeDays) {
+                                            newStart = newEnd.minusDays((maxRangeDays - 1).toLong())
+                                        }
+                                        onDateRangeSelected(newStart, newEnd)
+                                    }
+                                },
+                        ) {
+                            // Weekday label
+                            Text(
+                                text = dayOfWeek,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else Color(0xFF9E9E9E),
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Date Pill / Glowing Circle
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .shadow(8.dp, CircleShape, spotColor = Color(0xFFFF5722))
+                                    .shadow(glowElevation, CircleShape, spotColor = Color(0xFFFF5722))
                                     .clip(CircleShape)
                                     .background(
-                                        Brush.linearGradient(
-                                            colors = listOf(
-                                                Color(0xFFD81B60), // Vibrant Magenta
-                                                Color(0xFFFF5722), // Glowing Coral Orange
-                                            ),
-                                        ),
+                                        if (isSelected) {
+                                            Brush.linearGradient(
+                                                colors = listOf(
+                                                    Color(0xFFD81B60), // Vibrant Magenta
+                                                    Color(0xFFFF5722), // Glowing Coral Orange
+                                                ),
+                                            )
+                                        } else {
+                                            Brush.linearGradient(
+                                                colors = listOf(rangeBgColor, rangeBgColor),
+                                            )
+                                        },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = dayNum,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isInRange) Color(0x35E91E63) else Color.Transparent,
-                                    ),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = dayNum,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (isInRange) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isInRange) Color(0xFFFF80AB) else Color.White.copy(alpha = 0.85f),
+                                    fontSize = if (isSelected) 15.sp else 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.ExtraBold else (if (isInRange) FontWeight.Bold else FontWeight.Normal),
+                                    color = dateTextColor,
                                 )
                             }
                         }
