@@ -58,12 +58,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,9 +84,12 @@ import androidx.core.content.FileProvider
 import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.export.AttendanceReportPdfGenerator
 import com.hostelattendance.data.local.AttendanceRecordEntity
+import com.hostelattendance.data.local.StudentEntity
 import com.hostelattendance.data.repository.AttendanceRepository
 import com.hostelattendance.domain.AttendanceRules
 import com.hostelattendance.domain.AttendanceStatus
+import kotlinx.coroutines.launch
+import android.widget.Toast
 import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
@@ -97,15 +106,23 @@ private enum class ReportScope(val label: String) {
 }
 
 @Composable
-fun ReportsScreen(hostelId: String = "local-installation") {
+fun ReportsScreen(
+    hostelId: String = "local-installation",
+    isAdmin: Boolean = true,
+) {
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
-    ReportsScreen(hostelId = hostelId, repository = application.attendanceRepository)
+    ReportsScreen(
+        hostelId = hostelId,
+        isAdmin = isAdmin,
+        repository = application.attendanceRepository,
+    )
 }
 
 @Composable
 fun ReportsScreen(
     hostelId: String,
+    isAdmin: Boolean = true,
     repository: AttendanceRepository,
 ) {
     val context = LocalContext.current
@@ -133,6 +150,8 @@ fun ReportsScreen(
     var wingDropdownExpanded by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedRecordForSideOption by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
+    val scope = rememberCoroutineScope()
+    var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
 
     LaunchedEffect(wings.isEmpty()) {
         if (wings.isEmpty()) {
@@ -798,6 +817,42 @@ fun ReportsScreen(
                                 )
                             }
                         }
+
+                        if (isAdmin) {
+                            val editOptInteraction = rememberMotionInteractionSource()
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = Color(0x334CAF50),
+                                border = BorderStroke(1.dp, Color(0x664CAF50)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pressFeedback(editOptInteraction)
+                                    .clickable(
+                                        interactionSource = editOptInteraction,
+                                        indication = null,
+                                    ) {
+                                        scope.launch {
+                                            val student = application.database.studentDao().findById(targetRecord.studentId)
+                                            studentToEdit = student
+                                            selectedRecordForSideOption = null
+                                        }
+                                    },
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text(
+                                        text = "Edit student details",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF81C784),
+                                    )
+                                    Text(
+                                        text = "Correct name, room, wing, branch, year or status",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     OutlinedButton(
@@ -813,6 +868,144 @@ fun ReportsScreen(
                 }
             }
         }
+    }
+
+    studentToEdit?.let { student ->
+        var editName by remember(student) { mutableStateOf(student.studentName) }
+        var editRoom by remember(student) { mutableStateOf(student.currentRoomNumber) }
+        var editWingId by remember(student) { mutableStateOf(student.currentWingId) }
+        var editBranch by remember(student) { mutableStateOf(student.branch.orEmpty()) }
+        var editYear by remember(student) { mutableStateOf(student.year.orEmpty()) }
+        var editIsActive by remember(student) { mutableStateOf(student.isActive) }
+        var editWingMenuExpanded by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { studentToEdit = null },
+            title = { Text("Edit Student Details") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Roll Number: #${student.rollNumber} (Permanent ID)",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Full Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = editRoom,
+                        onValueChange = { editRoom = it },
+                        label = { Text("Room Number") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { editWingMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            val wingName = wings.firstOrNull { it.wingId == editWingId }?.name ?: "Select Wing"
+                            Text("Wing: $wingName")
+                        }
+                        DropdownMenu(
+                            expanded = editWingMenuExpanded,
+                            onDismissRequest = { editWingMenuExpanded = false },
+                        ) {
+                            wings.forEach { wing ->
+                                DropdownMenuItem(
+                                    text = { Text(wing.name) },
+                                    onClick = {
+                                        editWingId = wing.wingId
+                                        editWingMenuExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = editBranch,
+                        onValueChange = { editBranch = it },
+                        label = { Text("Branch") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = editYear,
+                        onValueChange = { editYear = it },
+                        label = { Text("Year") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(if (editIsActive) "Status: Active" else "Status: Inactive")
+                        Switch(
+                            checked = editIsActive,
+                            onCheckedChange = { editIsActive = it },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                application.studentRepository.updateStudent(
+                                    studentId = student.studentId,
+                                    studentName = editName,
+                                    roomNumber = editRoom,
+                                    wingId = editWingId,
+                                    branch = editBranch,
+                                    year = editYear,
+                                )
+                                if (editIsActive != student.isActive) {
+                                    application.studentRepository.setStudentActive(student.studentId, editIsActive)
+                                }
+                                Toast.makeText(
+                                    context,
+                                    "Updated resident $editName and synced to cloud!",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                studentToEdit = null
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    e.message ?: "Could not update student.",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                studentToEdit = null
+                            }
+                        }
+                    },
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { studentToEdit = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 }

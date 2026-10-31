@@ -151,7 +151,28 @@ class RoomStudentRepository(
         }
         val updatedStudent = studentDao.findById(studentId)
         if (updatedStudent != null) {
+            val wing = wingDao.findActiveWing(updatedStudent.hostelId, updatedStudent.currentWingId)
+            val wingName = wing?.name ?: ""
+            val now = System.currentTimeMillis()
+
+            // 1. Update all past attendance record snapshots in local Room SQLite
+            database.attendanceSessionDao().updateStudentSnapshots(
+                studentId = studentId,
+                studentName = updatedStudent.studentName,
+                roomNumber = updatedStudent.currentRoomNumber,
+                wingId = updatedStudent.currentWingId,
+                wingName = wingName,
+                updatedAtMillis = now,
+            )
+
+            // 2. Sync updated student entity to Cloud Firestore
             FirestoreSyncService.syncStudent(updatedStudent.hostelId, updatedStudent)
+
+            // 3. Sync updated attendance records for this student to Cloud Firestore
+            val updatedRecords = database.attendanceSessionDao().findRecordsForStudent(studentId)
+            if (updatedRecords.isNotEmpty()) {
+                FirestoreSyncService.syncAttendanceRecordsBatch(updatedStudent.hostelId, updatedRecords)
+            }
         }
     }
 

@@ -171,4 +171,32 @@ interface AttendanceSessionDao {
         """,
     )
     suspend fun deleteDraftRecordsForStudent(studentId: String): Int
+
+    @Query(
+        """
+        UPDATE attendance_records
+        SET studentNameSnapshot = :studentName,
+            roomNumberSnapshot = :roomNumber,
+            wingIdSnapshot = :wingId,
+            wingNameSnapshot = :wingName,
+            updatedAtMillis = :updatedAtMillis
+        WHERE studentId = :studentId
+        """,
+    )
+    suspend fun updateStudentSnapshots(
+        studentId: String,
+        studentName: String,
+        roomNumber: String,
+        wingId: String,
+        wingName: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query(
+        """
+        SELECT * FROM attendance_records
+        WHERE studentId = :studentId
+        """,
+    )
+    suspend fun findRecordsForStudent(studentId: String): List<AttendanceRecordEntity>
 }

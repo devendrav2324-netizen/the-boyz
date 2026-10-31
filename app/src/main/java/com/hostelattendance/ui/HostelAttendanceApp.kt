@@ -427,6 +427,7 @@ fun HostelAttendanceApp() {
                 composable("reports") {
                     ReportsScreen(
                         hostelId = activeHostelId,
+                        isAdmin = isAdmin,
                     )
                 }
                 composable("registration") {

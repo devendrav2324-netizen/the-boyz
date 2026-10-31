@@ -221,6 +221,42 @@ object FirestoreSyncService {
         } catch (_: Exception) {}
     }
 
+    suspend fun syncAttendanceRecordsBatch(
+        hostelId: String,
+        records: List<AttendanceRecordEntity>,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            val chunks = records.chunked(400)
+            for (chunk in chunks) {
+                val batch = db.batch()
+                for (rec in chunk) {
+                    val ref = db.collection("hostels").document(hostelId)
+                        .collection("attendance_records").document(safeDocId(rec.recordId))
+                    val recordData = mapOf(
+                        "recordId" to rec.recordId,
+                        "hostelId" to hostelId,
+                        "sessionId" to rec.sessionId,
+                        "studentId" to rec.studentId,
+                        "studentNameSnapshot" to rec.studentNameSnapshot,
+                        "rollNumberSnapshot" to rec.rollNumberSnapshot,
+                        "roomNumberSnapshot" to rec.roomNumberSnapshot,
+                        "wingIdSnapshot" to rec.wingIdSnapshot,
+                        "wingNameSnapshot" to rec.wingNameSnapshot,
+                        "localDate" to rec.localDate,
+                        "status" to rec.status,
+                        "version" to rec.version,
+                        "updatedAtMillis" to rec.updatedAtMillis,
+                    )
+                    batch.set(ref, recordData, SetOptions.merge())
+                }
+                withTimeoutOrNull(10000L) {
+                    batch.commit().await()
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
     suspend fun restoreWingsAndStudentsFromFirestore(
         hostelId: String,
         wingDao: WingDao,
