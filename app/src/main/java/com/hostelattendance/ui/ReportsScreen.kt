@@ -238,13 +238,16 @@ fun ReportsScreen(
         }
     }
 
+    val daysInRange = (ChronoUnit.DAYS.between(startDate, endDate) + 1).toInt().coerceAtLeast(1)
+    val studentCount = studentsForPdf.size.coerceAtLeast(1)
+    val totalStudentDays = studentCount * daysInRange
+
     val presentCount = filteredRecords.count { it.status == AttendanceStatus.PRESENT.name }
-    val absentCount = filteredRecords.count { it.status == AttendanceStatus.ABSENT.name }
     val leaveCount = filteredRecords.count { it.status == AttendanceStatus.LEAVE.name }
+    val effectiveAbsentCount = (totalStudentDays - presentCount - leaveCount).coerceAtLeast(0)
     val notMarkedCount = filteredRecords.count { it.status == AttendanceStatus.NOT_MARKED.name }
     val totalRecords = filteredRecords.size
-    val totalMarked = presentCount + absentCount + leaveCount
-    val attendanceRate = if (totalMarked > 0) (presentCount * 100) / totalMarked else 0
+    val attendanceRate = if (totalStudentDays > 0) (presentCount * 100) / totalStudentDays else 0
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -392,7 +395,7 @@ fun ReportsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     ReportStatItem(label = "Present", count = presentCount, color = Color(0xFF4CAF50))
-                    ReportStatItem(label = "Absent", count = absentCount, color = Color(0xFFE53935))
+                    ReportStatItem(label = "Absent", count = effectiveAbsentCount, color = Color(0xFFE53935))
                     ReportStatItem(label = "Leave", count = leaveCount, color = Color(0xFFFFA000))
                     ReportStatItem(label = "Attendance", count = "$attendanceRate%", color = MaterialTheme.colorScheme.primary)
                 }
@@ -402,7 +405,7 @@ fun ReportsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "$totalRecords records found ($notMarkedCount unrecorded)",
+                        text = "$totalStudentDays student-days ($daysInRange days · $effectiveAbsentCount absent)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -435,121 +438,17 @@ fun ReportsScreen(
             }
         }
 
-        // SECTION: Select Report Date Range
+        // SECTION: Select Report Date Range (Arched Liquid Glass Calendar)
         item(key = "reports_date_range") {
-            GlassPanel(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text(
-                            text = "Select Report Date Range",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        val daysCount = ChronoUnit.DAYS.between(startDate, endDate) + 1
-                        Text(
-                            text = "$daysCount Days in range (Maximum 15 Days)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    val startInteraction = rememberMotionInteractionSource()
-                    OutlinedButton(
-                        onClick = {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, day ->
-                                    val newStart = LocalDate.of(year, month + 1, day)
-                                    startDateString = newStart.toString()
-                                    if (endDate.isBefore(newStart)) {
-                                        endDateString = newStart.toString()
-                                    } else if (ChronoUnit.DAYS.between(newStart, endDate) > 14) {
-                                        endDateString = newStart.plusDays(14).toString()
-                                    }
-                                },
-                                startDate.year,
-                                startDate.monthValue - 1,
-                                startDate.dayOfMonth,
-                            ).show()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp)
-                            .pressFeedback(startInteraction),
-                        interactionSource = startInteraction,
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Start Date",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = startDate.format(dateButtonFormatter),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-
-                    val endInteraction = rememberMotionInteractionSource()
-                    OutlinedButton(
-                        onClick = {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, day ->
-                                    val newEnd = LocalDate.of(year, month + 1, day)
-                                    endDateString = newEnd.toString()
-                                    if (newEnd.isBefore(startDate)) {
-                                        startDateString = newEnd.toString()
-                                    } else if (ChronoUnit.DAYS.between(startDate, newEnd) > 14) {
-                                        startDateString = newEnd.minusDays(14).toString()
-                                    }
-                                },
-                                endDate.year,
-                                endDate.monthValue - 1,
-                                endDate.dayOfMonth,
-                            ).show()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp)
-                            .pressFeedback(endInteraction),
-                        interactionSource = endInteraction,
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "End Date",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = endDate.format(dateButtonFormatter),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-            }
+            ArchedGlassCalendar(
+                startDate = startDate,
+                endDate = endDate,
+                onDateRangeSelected = { newStart, newEnd ->
+                    startDateString = newStart.toString()
+                    endDateString = newEnd.toString()
+                },
+                maxRangeDays = 15,
+            )
         }
 
         // Attendance Register List Header

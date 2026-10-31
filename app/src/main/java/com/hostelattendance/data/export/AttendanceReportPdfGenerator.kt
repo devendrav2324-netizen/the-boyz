@@ -351,14 +351,16 @@ class AttendanceReportPdfGenerator {
                 canvas.drawLine(cellX + totPWidth, currentY, cellX + totPWidth, currentY + dataRowHeight, gridPaint)
                 cellX += totPWidth
 
-                // Summary: Tot A
-                canvas.drawText(aCount.toString(), cellX + (totAWidth / 2f), currentY + 13f, centerCellTextPaint)
+                // Summary: Tot A (Unmarked and absent are both calculated as absent across the full selected date range)
+                val totalDaysInRange = dates.size.coerceAtLeast(1)
+                val effectiveAbsentCount = (totalDaysInRange - pCount - lCount).coerceAtLeast(0)
+                canvas.drawText(effectiveAbsentCount.toString(), cellX + (totAWidth / 2f), currentY + 13f, centerCellTextPaint)
                 canvas.drawLine(cellX + totAWidth, currentY, cellX + totAWidth, currentY + dataRowHeight, gridPaint)
                 cellX += totAWidth
 
-                // Summary: %
-                val totalEvaluated = pCount + aCount + lCount
-                val pctStr = if (totalEvaluated > 0) "${(pCount * 100) / totalEvaluated}%" else "—"
+                // Summary: % (Total number of days equal to day range selected)
+                val pct = (pCount * 100) / totalDaysInRange
+                val pctStr = "$pct%"
                 canvas.drawText(pctStr, cellX + (pctWidth / 2f), currentY + 13f, centerCellTextPaint)
                 canvas.drawLine(cellX + pctWidth, currentY, cellX + pctWidth, currentY + dataRowHeight, gridPaint)
                 cellX += pctWidth
