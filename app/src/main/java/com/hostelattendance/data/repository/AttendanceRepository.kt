@@ -150,7 +150,7 @@ class RoomAttendanceRepository(
         }
 
         // 4. Admin creating a new draft session in Room
-        return database.withTransaction {
+        val createdSession = database.withTransaction {
             sessionDao.findSession(hostelId, localDate, wingId)?.let { existing ->
                 return@withTransaction sessionDao.findSessionWithRecords(existing.sessionId)
             }
@@ -220,6 +220,15 @@ class RoomAttendanceRepository(
             sessionDao.insertRecords(records)
             sessionDao.findSessionWithRecords(sessionId)
         }
+
+        if (createdSession != null) {
+            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
+                hostelId = hostelId,
+                session = createdSession.session,
+                records = createdSession.records,
+            )
+        }
+        return createdSession
     }
 
     override suspend fun mark(
@@ -245,6 +254,15 @@ class RoomAttendanceRepository(
             updatedAtMillis = System.currentTimeMillis(),
         )
         check(updated == 1) { "This attendance record could not be updated." }
+
+        // Immediately sync marked attendance change to Cloud Firestore online
+        val updatedRecord = sessionDao.findSessionWithRecords(sessionId)?.records?.firstOrNull { it.recordId == recordId }
+        if (updatedRecord != null) {
+            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceRecord(
+                hostelId = sessionWithRecords.session.hostelId,
+                record = updatedRecord,
+            )
+        }
     }
 
     override suspend fun save(

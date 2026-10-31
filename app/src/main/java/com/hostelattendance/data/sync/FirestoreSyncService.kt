@@ -264,7 +264,7 @@ object FirestoreSyncService {
     ): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext Pair(0, 0)
         try {
-            val wingDocs = withTimeoutOrNull(10000L) {
+            val wingDocs = withTimeoutOrNull(15000L) {
                 db.collection("hostels").document(hostelId)
                     .collection("wings").get().await()
             }
@@ -294,7 +294,7 @@ object FirestoreSyncService {
                 }
             }
 
-            val studentDocs = withTimeoutOrNull(15000L) {
+            val studentDocs = withTimeoutOrNull(30000L) {
                 db.collection("hostels").document(hostelId)
                     .collection("students").get().await()
             }
@@ -384,9 +384,23 @@ object FirestoreSyncService {
                 }
             }
 
-            val recordDocs = withTimeoutOrNull(20000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("attendance_records").get().await()
+            val recordDocs = try {
+                withTimeoutOrNull(35000L) {
+                    db.collection("hostels").document(hostelId)
+                        .collection("attendance_records").get().await()
+                }
+            } catch (_: Exception) { null } ?: run {
+                // Fallback: Query recent records from the last 60 days if full get timed out
+                val sixtyDaysAgo = java.time.LocalDate.now().minusDays(60).toString()
+                try {
+                    withTimeoutOrNull(20000L) {
+                        db.collection("hostels").document(hostelId)
+                            .collection("attendance_records")
+                            .whereGreaterThanOrEqualTo("localDate", sixtyDaysAgo)
+                            .get()
+                            .await()
+                    }
+                } catch (_: Exception) { null }
             }
 
             var restoredRecordsCount = 0
@@ -742,6 +756,21 @@ object FirestoreSyncService {
                 }
                 if (records.isNotEmpty()) {
                     CoroutineScope(Dispatchers.IO).launch {
+                        val existing = sessionDao.findSession(hostelId, localDate, wingId)
+                        if (existing == null) {
+                            val syntheticSession = AttendanceSessionEntity(
+                                sessionId = records.firstOrNull()?.sessionId ?: expectedSessionId,
+                                hostelId = hostelId,
+                                localDate = localDate,
+                                timeZone = "Asia/Kolkata",
+                                wingId = wingId,
+                                state = "DRAFT",
+                                savedAtMillis = null,
+                                savedBy = null,
+                                version = 0L,
+                            )
+                            sessionDao.insertSession(syntheticSession)
+                        }
                         sessionDao.insertRecords(records)
                     }
                 }

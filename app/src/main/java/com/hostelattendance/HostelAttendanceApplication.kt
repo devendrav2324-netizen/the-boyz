@@ -28,7 +28,7 @@ class HostelAttendanceApplication : Application() {
         } catch (_: Exception) {}
         appScope.launch {
             try {
-                DatabaseSeeder.seedIfNeeded(this@HostelAttendanceApplication, database, "local-installation")
+                DatabaseSeeder.seedIfNeeded(this@HostelAttendanceApplication, database, "cgitr-boys")
             } catch (_: Exception) {}
         }
     }
