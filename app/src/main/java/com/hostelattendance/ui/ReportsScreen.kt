@@ -171,10 +171,6 @@ fun ReportsScreen(
         .collectAsState(initial = emptyList())
 
     LaunchedEffect(hostelId, startDateString, endDateString) {
-        com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceFromFirestore(
-            hostelId = hostelId,
-            sessionDao = application.database.attendanceSessionDao(),
-        )
         com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
             hostelId = hostelId,
             startDate = startDate.toString(),

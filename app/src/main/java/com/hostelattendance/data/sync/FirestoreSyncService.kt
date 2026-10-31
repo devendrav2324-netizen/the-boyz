@@ -1,36 +1,71 @@
 package com.hostelattendance.data.sync
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.hostelattendance.data.local.AttendanceRecordEntity
 import com.hostelattendance.data.local.AttendanceSessionDao
 import com.hostelattendance.data.local.AttendanceSessionEntity
 import com.hostelattendance.data.local.AttendanceSessionWithRecords
+import com.hostelattendance.data.local.HostelDatabase
 import com.hostelattendance.data.local.StudentDao
 import com.hostelattendance.data.local.StudentEntity
 import com.hostelattendance.data.local.WingDao
 import com.hostelattendance.data.local.WingEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDate
 
+/**
+ * Unified, disciplined Cloud Firestore synchronization service.
+ * Handles online writes, multi-device cloud recovery, and real-time streaming
+ * with guaranteed Room SQLite parent-child session integrity and serialized database writes.
+ */
 object FirestoreSyncService {
 
-    private fun safeDocId(id: String): String = id.replace("/", "_")
+    private const val TAG = "FirestoreSyncService"
+
+    // Serialized single-threaded dispatcher to avoid SQLiteDatabaseLockedException on rapid incoming real-time streams
+    private val dbWriteDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Standardized document ID sanitizer for Firestore paths (replaces path separators)
+     */
+    fun safeDocId(id: String): String = id.replace("/", "_")
 
     private val firestore: FirebaseFirestore?
         get() = try {
             if (FirebaseAuth.getInstance().currentUser != null) {
                 FirebaseFirestore.getInstance()
             } else null
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "FirebaseFirestore instance not available: ${e.message}")
             null
         }
 
+    // Standardized Collection Reference Builders
+    private fun hostelsCol(db: FirebaseFirestore) = db.collection("hostels")
+    private fun hostelDoc(db: FirebaseFirestore, hostelId: String) = hostelsCol(db).document(hostelId)
+    private fun wingsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("wings")
+    private fun studentsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("students")
+    private fun sessionsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_sessions")
+    private fun recordsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_records")
+
+    // =========================================================================
+    // 1. ONLINE WRITE OPERATIONS (IMMEDIATE PUSH)
+    // =========================================================================
+
+    /**
+     * Synchronize a single wing to Cloud Firestore.
+     */
     suspend fun syncWing(hostelId: String, wing: WingEntity) = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext
         try {
@@ -42,15 +77,20 @@ object FirestoreSyncService {
                 "isActive" to wing.isActive,
                 "updatedAtMillis" to wing.updatedAtMillis,
             )
-            withTimeoutOrNull(5000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("wings").document(safeDocId(wing.wingId))
+            withTimeoutOrNull(6000L) {
+                wingsCol(db, hostelId).document(safeDocId(wing.wingId))
                     .set(data, SetOptions.merge())
                     .await()
             }
-        } catch (_: Exception) {}
+            Log.d(TAG, "Successfully synced wing: ${wing.name}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync wing '${wing.name}': ${e.message}")
+        }
     }
 
+    /**
+     * Synchronize a single student entity to Cloud Firestore.
+     */
     suspend fun syncStudent(hostelId: String, student: StudentEntity) = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext
         try {
@@ -68,15 +108,20 @@ object FirestoreSyncService {
                 "createdAtMillis" to student.createdAtMillis,
                 "updatedAtMillis" to student.updatedAtMillis,
             )
-            withTimeoutOrNull(5000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("students").document(safeDocId(student.studentId))
+            withTimeoutOrNull(6000L) {
+                studentsCol(db, hostelId).document(safeDocId(student.studentId))
                     .set(data, SetOptions.merge())
                     .await()
             }
-        } catch (_: Exception) {}
+            Log.d(TAG, "Successfully synced student: ${student.rollNumber} - ${student.studentName}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync student '${student.rollNumber}': ${e.message}")
+        }
     }
 
+    /**
+     * Bulk synchronize master roster (wings and students) in safe batches.
+     */
     suspend fun syncWingsAndStudents(
         hostelId: String,
         wings: List<WingEntity>,
@@ -85,18 +130,16 @@ object FirestoreSyncService {
         val db = firestore ?: return@withContext
         try {
             withTimeoutOrNull(5000L) {
-                db.collection("hostels").document(hostelId)
+                hostelDoc(db, hostelId)
                     .set(mapOf("hostelId" to hostelId, "updatedAtMillis" to System.currentTimeMillis()), SetOptions.merge())
                     .await()
             }
 
             // 1. Wings
-            val wingChunks = wings.chunked(300)
-            for (chunk in wingChunks) {
+            for (chunk in wings.chunked(300)) {
                 val batch = db.batch()
                 for (wing in chunk) {
-                    val ref = db.collection("hostels").document(hostelId)
-                        .collection("wings").document(safeDocId(wing.wingId))
+                    val ref = wingsCol(db, hostelId).document(safeDocId(wing.wingId))
                     val data = mapOf(
                         "wingId" to wing.wingId,
                         "hostelId" to hostelId,
@@ -107,18 +150,16 @@ object FirestoreSyncService {
                     )
                     batch.set(ref, data, SetOptions.merge())
                 }
-                withTimeoutOrNull(8000L) {
+                withTimeoutOrNull(10000L) {
                     batch.commit().await()
                 }
             }
 
             // 2. Students
-            val studentChunks = students.chunked(300)
-            for (chunk in studentChunks) {
+            for (chunk in students.chunked(300)) {
                 val batch = db.batch()
                 for (student in chunk) {
-                    val ref = db.collection("hostels").document(hostelId)
-                        .collection("students").document(safeDocId(student.studentId))
+                    val ref = studentsCol(db, hostelId).document(safeDocId(student.studentId))
                     val data = mapOf(
                         "studentId" to student.studentId,
                         "hostelId" to hostelId,
@@ -135,13 +176,19 @@ object FirestoreSyncService {
                     )
                     batch.set(ref, data, SetOptions.merge())
                 }
-                withTimeoutOrNull(8000L) {
+                withTimeoutOrNull(12000L) {
                     batch.commit().await()
                 }
             }
-        } catch (_: Exception) {}
+            Log.d(TAG, "Synced ${wings.size} wings and ${students.size} students to Cloud Firestore")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error syncing roster to Firestore: ${e.message}")
+        }
     }
 
+    /**
+     * Synchronize a complete attendance session and its constituent records.
+     */
     suspend fun syncAttendanceSession(
         hostelId: String,
         session: AttendanceSessionEntity,
@@ -160,79 +207,16 @@ object FirestoreSyncService {
                 "savedBy" to (session.savedBy ?: (FirebaseAuth.getInstance().currentUser?.uid ?: "")),
                 "version" to session.version,
             )
-            db.collection("hostels").document(hostelId)
-                .collection("attendance_sessions").document(safeDocId(session.sessionId))
-                .set(sessionData, SetOptions.merge())
-                .await()
-
-            val recordChunks = records.chunked(400)
-            for (chunk in recordChunks) {
-                val batch = db.batch()
-                for (rec in chunk) {
-                    val ref = db.collection("hostels").document(hostelId)
-                        .collection("attendance_records").document(safeDocId(rec.recordId))
-                    val recordData = mapOf(
-                        "recordId" to rec.recordId,
-                        "hostelId" to hostelId,
-                        "sessionId" to rec.sessionId,
-                        "studentId" to rec.studentId,
-                        "studentNameSnapshot" to rec.studentNameSnapshot,
-                        "rollNumberSnapshot" to rec.rollNumberSnapshot,
-                        "roomNumberSnapshot" to rec.roomNumberSnapshot,
-                        "wingIdSnapshot" to rec.wingIdSnapshot,
-                        "wingNameSnapshot" to rec.wingNameSnapshot,
-                        "localDate" to rec.localDate,
-                        "status" to rec.status,
-                        "version" to rec.version,
-                        "updatedAtMillis" to rec.updatedAtMillis,
-                    )
-                    batch.set(ref, recordData, SetOptions.merge())
-                }
-                batch.commit().await()
+            withTimeoutOrNull(6000L) {
+                sessionsCol(db, hostelId).document(safeDocId(session.sessionId))
+                    .set(sessionData, SetOptions.merge())
+                    .await()
             }
-        } catch (_: Exception) {}
-    }
 
-    suspend fun syncAttendanceRecord(
-        hostelId: String,
-        record: AttendanceRecordEntity,
-    ) = withContext(Dispatchers.IO) {
-        val db = firestore ?: return@withContext
-        try {
-            val recordData = mapOf(
-                "recordId" to record.recordId,
-                "hostelId" to hostelId,
-                "sessionId" to record.sessionId,
-                "studentId" to record.studentId,
-                "studentNameSnapshot" to record.studentNameSnapshot,
-                "rollNumberSnapshot" to record.rollNumberSnapshot,
-                "roomNumberSnapshot" to record.roomNumberSnapshot,
-                "wingIdSnapshot" to record.wingIdSnapshot,
-                "wingNameSnapshot" to record.wingNameSnapshot,
-                "localDate" to record.localDate,
-                "status" to record.status,
-                "version" to record.version,
-                "updatedAtMillis" to record.updatedAtMillis,
-            )
-            db.collection("hostels").document(hostelId)
-                .collection("attendance_records").document(safeDocId(record.recordId))
-                .set(recordData, SetOptions.merge())
-                .await()
-        } catch (_: Exception) {}
-    }
-
-    suspend fun syncAttendanceRecordsBatch(
-        hostelId: String,
-        records: List<AttendanceRecordEntity>,
-    ) = withContext(Dispatchers.IO) {
-        val db = firestore ?: return@withContext
-        try {
-            val chunks = records.chunked(400)
-            for (chunk in chunks) {
+            for (chunk in records.chunked(300)) {
                 val batch = db.batch()
                 for (rec in chunk) {
-                    val ref = db.collection("hostels").document(hostelId)
-                        .collection("attendance_records").document(safeDocId(rec.recordId))
+                    val ref = recordsCol(db, hostelId).document(safeDocId(rec.recordId))
                     val recordData = mapOf(
                         "recordId" to rec.recordId,
                         "hostelId" to hostelId,
@@ -254,9 +238,130 @@ object FirestoreSyncService {
                     batch.commit().await()
                 }
             }
-        } catch (_: Exception) {}
+            Log.d(TAG, "Successfully synced session ${session.sessionId} with ${records.size} records")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error syncing attendance session: ${e.message}")
+        }
     }
 
+    /**
+     * Real-time online sync of an individual marked attendance record.
+     */
+    suspend fun syncAttendanceRecord(
+        hostelId: String,
+        record: AttendanceRecordEntity,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            val recordData = mapOf(
+                "recordId" to record.recordId,
+                "hostelId" to hostelId,
+                "sessionId" to record.sessionId,
+                "studentId" to record.studentId,
+                "studentNameSnapshot" to record.studentNameSnapshot,
+                "rollNumberSnapshot" to record.rollNumberSnapshot,
+                "roomNumberSnapshot" to record.roomNumberSnapshot,
+                "wingIdSnapshot" to record.wingIdSnapshot,
+                "wingNameSnapshot" to record.wingNameSnapshot,
+                "localDate" to record.localDate,
+                "status" to record.status,
+                "version" to record.version,
+                "updatedAtMillis" to record.updatedAtMillis,
+            )
+            withTimeoutOrNull(5000L) {
+                recordsCol(db, hostelId).document(safeDocId(record.recordId))
+                    .set(recordData, SetOptions.merge())
+                    .await()
+            }
+            Log.d(TAG, "Live synced attendance record: ${record.rollNumberSnapshot} -> ${record.status}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed live sync for record ${record.recordId}: ${e.message}")
+        }
+    }
+
+    /**
+     * Batch sync attendance records (e.g. after student profile edit or bulk marking).
+     */
+    suspend fun syncAttendanceRecordsBatch(
+        hostelId: String,
+        records: List<AttendanceRecordEntity>,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            for (chunk in records.chunked(300)) {
+                val batch = db.batch()
+                for (rec in chunk) {
+                    val ref = recordsCol(db, hostelId).document(safeDocId(rec.recordId))
+                    val recordData = mapOf(
+                        "recordId" to rec.recordId,
+                        "hostelId" to hostelId,
+                        "sessionId" to rec.sessionId,
+                        "studentId" to rec.studentId,
+                        "studentNameSnapshot" to rec.studentNameSnapshot,
+                        "rollNumberSnapshot" to rec.rollNumberSnapshot,
+                        "roomNumberSnapshot" to rec.roomNumberSnapshot,
+                        "wingIdSnapshot" to rec.wingIdSnapshot,
+                        "wingNameSnapshot" to rec.wingNameSnapshot,
+                        "localDate" to rec.localDate,
+                        "status" to rec.status,
+                        "version" to rec.version,
+                        "updatedAtMillis" to rec.updatedAtMillis,
+                    )
+                    batch.set(ref, recordData, SetOptions.merge())
+                }
+                withTimeoutOrNull(10000L) {
+                    batch.commit().await()
+                }
+            }
+            Log.d(TAG, "Batch synced ${records.size} attendance records")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error in batch sync of attendance records: ${e.message}")
+        }
+    }
+
+    // =========================================================================
+    // 2. CLOUD RESTORATION & DATA RECOVERY
+    // =========================================================================
+
+    /**
+     * Helper to ensure every attendance record has an existing parent session row in SQLite
+     * so that Room's @Relation join emits the records properly.
+     */
+    private suspend fun ensureParentSessionsExist(
+        hostelId: String,
+        records: List<AttendanceRecordEntity>,
+        sessionDao: AttendanceSessionDao,
+        knownSessionIds: Set<String> = emptySet(),
+    ) {
+        val syntheticSessions = records
+            .map { it.sessionId to (it.localDate to it.wingIdSnapshot) }
+            .distinctBy { it.first }
+            .filterNot { knownSessionIds.contains(it.first) }
+            .mapNotNull { (sId, dateAndWing) ->
+                val existing = sessionDao.findSession(hostelId, dateAndWing.first, dateAndWing.second)
+                if (existing == null) {
+                    AttendanceSessionEntity(
+                        sessionId = sId,
+                        hostelId = hostelId,
+                        localDate = dateAndWing.first,
+                        timeZone = "Asia/Kolkata",
+                        wingId = dateAndWing.second,
+                        state = "SAVED",
+                        savedAtMillis = System.currentTimeMillis(),
+                        savedBy = null,
+                        version = 0L,
+                    )
+                } else null
+            }
+        if (syntheticSessions.isNotEmpty()) {
+            sessionDao.insertSessions(syntheticSessions)
+            Log.d(TAG, "Ensured ${syntheticSessions.size} parent session rows in SQLite")
+        }
+    }
+
+    /**
+     * Restores wings and students from Cloud Firestore into local Room SQLite.
+     */
     suspend fun restoreWingsAndStudentsFromFirestore(
         hostelId: String,
         wingDao: WingDao,
@@ -264,13 +369,11 @@ object FirestoreSyncService {
     ): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext Pair(0, 0)
         try {
-            val wingDocs = withTimeoutOrNull(15000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("wings").get().await()
-            }
-
             var restoredWingsCount = 0
-            if (wingDocs != null) {
+            val wingDocs = withTimeoutOrNull(15000L) {
+                wingsCol(db, hostelId).get().await()
+            }
+            if (wingDocs != null && !wingDocs.isEmpty) {
                 val wings = wingDocs.documents.mapNotNull { doc ->
                     val name = doc.getString("name") ?: return@mapNotNull null
                     WingEntity(
@@ -289,18 +392,18 @@ object FirestoreSyncService {
                     .toList()
 
                 if (deduplicatedWings.isNotEmpty()) {
-                    wingDao.insertWings(deduplicatedWings)
+                    withContext(dbWriteDispatcher) {
+                        wingDao.insertWings(deduplicatedWings)
+                    }
                     restoredWingsCount = deduplicatedWings.size
                 }
             }
 
-            val studentDocs = withTimeoutOrNull(30000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("students").get().await()
-            }
-
             var restoredStudentsCount = 0
-            if (studentDocs != null) {
+            val studentDocs = withTimeoutOrNull(25000L) {
+                studentsCol(db, hostelId).get().await()
+            }
+            if (studentDocs != null && !studentDocs.isEmpty) {
                 val students = studentDocs.documents.mapNotNull { doc ->
                     val roll = doc.getString("rollNumber") ?: return@mapNotNull null
                     val name = doc.getString("studentName") ?: return@mapNotNull null
@@ -328,32 +431,41 @@ object FirestoreSyncService {
                     .toList()
 
                 if (deduplicatedStudents.isNotEmpty()) {
-                    deduplicatedStudents.chunked(250).forEach { chunk ->
-                        studentDao.insertStudents(chunk)
+                    withContext(dbWriteDispatcher) {
+                        deduplicatedStudents.chunked(250).forEach { chunk ->
+                            studentDao.insertStudents(chunk)
+                        }
                     }
                     restoredStudentsCount = deduplicatedStudents.size
                 }
             }
+            Log.d(TAG, "Restored $restoredWingsCount wings and $restoredStudentsCount students from Firestore")
             Pair(restoredWingsCount, restoredStudentsCount)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Error restoring wings/students from Firestore: ${e.message}")
             Pair(0, 0)
         }
     }
 
+    /**
+     * Phased, robust attendance restoration from Cloud Firestore into Room SQLite.
+     * Restores session metadata and queries recent records with fallback to ensure
+     * fresh device installs immediately recover attendance data.
+     */
     suspend fun restoreAttendanceFromFirestore(
         hostelId: String,
         sessionDao: AttendanceSessionDao,
     ): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext Pair(0, 0)
         try {
-            val sessionDocs = withTimeoutOrNull(12000L) {
-                db.collection("hostels").document(hostelId)
-                    .collection("attendance_sessions").get().await()
-            }
-
             var restoredSessionsCount = 0
             val knownSessionIds = mutableSetOf<String>()
-            if (sessionDocs != null) {
+
+            // 1. Restore Sessions
+            val sessionDocs = withTimeoutOrNull(15000L) {
+                sessionsCol(db, hostelId).get().await()
+            }
+            if (sessionDocs != null && !sessionDocs.isEmpty) {
                 val sessions = sessionDocs.documents.mapNotNull { doc ->
                     val localDate = doc.getString("localDate") ?: return@mapNotNull null
                     val wingId = doc.getString("wingId") ?: return@mapNotNull null
@@ -377,25 +489,25 @@ object FirestoreSyncService {
 
                 if (deduplicatedSessions.isNotEmpty()) {
                     knownSessionIds.addAll(deduplicatedSessions.map { it.sessionId })
-                    deduplicatedSessions.chunked(200).forEach { chunk ->
-                        sessionDao.insertSessions(chunk)
+                    withContext(dbWriteDispatcher) {
+                        deduplicatedSessions.chunked(200).forEach { chunk ->
+                            sessionDao.insertSessions(chunk)
+                        }
                     }
                     restoredSessionsCount = deduplicatedSessions.size
                 }
             }
 
+            // 2. Restore Records (Full get with 35s timeout, with 60-day fallback for low bandwidth)
             val recordDocs = try {
                 withTimeoutOrNull(35000L) {
-                    db.collection("hostels").document(hostelId)
-                        .collection("attendance_records").get().await()
+                    recordsCol(db, hostelId).get().await()
                 }
             } catch (_: Exception) { null } ?: run {
-                // Fallback: Query recent records from the last 60 days if full get timed out
-                val sixtyDaysAgo = java.time.LocalDate.now().minusDays(60).toString()
+                val sixtyDaysAgo = LocalDate.now().minusDays(60).toString()
                 try {
                     withTimeoutOrNull(20000L) {
-                        db.collection("hostels").document(hostelId)
-                            .collection("attendance_records")
+                        recordsCol(db, hostelId)
                             .whereGreaterThanOrEqualTo("localDate", sixtyDaysAgo)
                             .get()
                             .await()
@@ -404,7 +516,7 @@ object FirestoreSyncService {
             }
 
             var restoredRecordsCount = 0
-            if (recordDocs != null) {
+            if (recordDocs != null && !recordDocs.isEmpty) {
                 val records = recordDocs.documents.mapNotNull { doc ->
                     val studentId = doc.getString("studentId") ?: return@mapNotNull null
                     val localDate = doc.getString("localDate") ?: return@mapNotNull null
@@ -439,40 +551,27 @@ object FirestoreSyncService {
                     .toList()
 
                 if (deduplicatedRecords.isNotEmpty()) {
-                    // Ensure every record has an existing session in SQLite
-                    val syntheticSessions = deduplicatedRecords
-                        .map { it.sessionId to (it.localDate to it.wingIdSnapshot) }
-                        .distinctBy { it.first }
-                        .filterNot { knownSessionIds.contains(it.first) }
-                        .map { (sId, dateAndWing) ->
-                            AttendanceSessionEntity(
-                                sessionId = sId,
-                                hostelId = hostelId,
-                                localDate = dateAndWing.first,
-                                timeZone = "Asia/Kolkata",
-                                wingId = dateAndWing.second,
-                                state = "SAVED",
-                                savedAtMillis = System.currentTimeMillis(),
-                                savedBy = null,
-                                version = 0L,
-                            )
+                    withContext(dbWriteDispatcher) {
+                        ensureParentSessionsExist(hostelId, deduplicatedRecords, sessionDao, knownSessionIds)
+                        deduplicatedRecords.chunked(250).forEach { chunk ->
+                            sessionDao.insertRecords(chunk)
                         }
-                    if (syntheticSessions.isNotEmpty()) {
-                        sessionDao.insertSessions(syntheticSessions)
-                    }
-
-                    deduplicatedRecords.chunked(250).forEach { chunk ->
-                        sessionDao.insertRecords(chunk)
                     }
                     restoredRecordsCount = deduplicatedRecords.size
                 }
             }
+            Log.d(TAG, "Restored $restoredSessionsCount sessions and $restoredRecordsCount attendance records from Firestore")
             Pair(restoredSessionsCount, restoredRecordsCount)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Error in restoreAttendanceFromFirestore: ${e.message}")
             Pair(0, 0)
         }
     }
 
+    /**
+     * Pull a specific date & wing attendance session directly from Firestore into Room SQLite.
+     * Guarantees atomic insertion of both session header and constituent records.
+     */
     suspend fun pullAttendanceSession(
         hostelId: String,
         localDate: String,
@@ -484,47 +583,27 @@ object FirestoreSyncService {
             val expectedSessionId = "$hostelId:$localDate:$wingId"
             val safeId = safeDocId(expectedSessionId)
 
-            // 1. Try to find session doc by direct ID first (both safe and raw), then by query
-            val directDoc = try {
-                val d = db.collection("hostels").document(hostelId)
-                    .collection("attendance_sessions").document(safeId)
-                    .get()
-                    .await()
-                if (d != null && d.exists()) d else {
-                    if (safeId != expectedSessionId) {
-                        try {
-                            db.collection("hostels").document(hostelId)
-                                .collection("attendance_sessions").document(expectedSessionId)
-                                .get()
-                                .await()
-                        } catch (_: Exception) { null }
-                    } else null
-                }
-            } catch (_: Exception) { null }
-
-            val sessionDoc = if (directDoc != null && directDoc.exists()) {
-                directDoc
-            } else {
-                try {
-                    val query = db.collection("hostels").document(hostelId)
-                        .collection("attendance_sessions")
+            // 1. Fetch Session Header Doc (Direct ID or Query fallback)
+            val sessionDoc = try {
+                val direct = sessionsCol(db, hostelId).document(safeId).get().await()
+                if (direct.exists()) direct else {
+                    val query = sessionsCol(db, hostelId)
                         .whereEqualTo("localDate", localDate)
                         .whereEqualTo("wingId", wingId)
                         .limit(1)
                         .get()
                         .await()
                     query.documents.firstOrNull()
-                } catch (_: Exception) { null }
-            }
+                }
+            } catch (_: Exception) { null }
 
             val sessionId = sessionDoc?.getString("sessionId")?.takeIf { it.isNotBlank() }
                 ?: sessionDoc?.id
                 ?: expectedSessionId
 
-            // 2. Fetch records: first by sessionId (and safeId), then fallback by localDate and wingIdSnapshot
+            // 2. Fetch Records for this session
             var recordDocs = try {
-                db.collection("hostels").document(hostelId)
-                    .collection("attendance_records")
+                recordsCol(db, hostelId)
                     .whereEqualTo("sessionId", sessionId)
                     .get()
                     .await()
@@ -533,8 +612,7 @@ object FirestoreSyncService {
 
             if (recordDocs.isEmpty() && safeDocId(sessionId) != sessionId) {
                 recordDocs = try {
-                    db.collection("hostels").document(hostelId)
-                        .collection("attendance_records")
+                    recordsCol(db, hostelId)
                         .whereEqualTo("sessionId", safeDocId(sessionId))
                         .get()
                         .await()
@@ -544,8 +622,7 @@ object FirestoreSyncService {
 
             if (recordDocs.isEmpty()) {
                 recordDocs = try {
-                    db.collection("hostels").document(hostelId)
-                        .collection("attendance_records")
+                    recordsCol(db, hostelId)
                         .whereEqualTo("localDate", localDate)
                         .whereEqualTo("wingIdSnapshot", wingId)
                         .get()
@@ -554,24 +631,21 @@ object FirestoreSyncService {
                 } catch (_: Exception) { emptyList() }
             }
 
-            // If neither session doc exists nor any records exist, no attendance was ever recorded in cloud
             if (sessionDoc == null && recordDocs.isEmpty()) {
                 return@withContext null
             }
 
-            // Ensure session entity is inserted into SQLite
             val sessionEntity = AttendanceSessionEntity(
                 sessionId = sessionId,
                 hostelId = sessionDoc?.getString("hostelId") ?: hostelId,
                 localDate = sessionDoc?.getString("localDate") ?: localDate,
                 timeZone = sessionDoc?.getString("timeZone") ?: "Asia/Kolkata",
                 wingId = sessionDoc?.getString("wingId") ?: wingId,
-                state = sessionDoc?.getString("state") ?: "SAVED",
+                state = sessionDoc?.getString("state") ?: if (recordDocs.any { it.getString("status") == "PRESENT" || it.getString("status") == "ABSENT" }) "SAVED" else "DRAFT",
                 savedAtMillis = sessionDoc?.getLong("savedAtMillis") ?: System.currentTimeMillis(),
                 savedBy = sessionDoc?.getString("savedBy"),
                 version = sessionDoc?.getLong("version") ?: 0L,
             )
-            sessionDao.insertSession(sessionEntity)
 
             val records = recordDocs.mapNotNull { doc ->
                 val sId = doc.getString("studentId") ?: return@mapNotNull null
@@ -592,15 +666,25 @@ object FirestoreSyncService {
                     updatedAtMillis = doc.getLong("updatedAtMillis") ?: 0L,
                 )
             }
-            if (records.isNotEmpty()) {
-                sessionDao.insertRecords(records)
+
+            withContext(dbWriteDispatcher) {
+                sessionDao.insertSession(sessionEntity)
+                if (records.isNotEmpty()) {
+                    sessionDao.insertRecords(records)
+                }
             }
+
+            Log.d(TAG, "Pulled session $sessionId with ${records.size} records from Firestore")
             sessionDao.findSessionWithRecords(sessionId)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Error in pullAttendanceSession: ${e.message}")
             null
         }
     }
 
+    /**
+     * Restore attendance records and sessions for a selected date range (used by Reports screen).
+     */
     suspend fun restoreAttendanceForDateRange(
         hostelId: String,
         startDate: String,
@@ -611,9 +695,8 @@ object FirestoreSyncService {
         var anyRestored = false
         try {
             val sessionDocs = try {
-                withTimeoutOrNull(8000L) {
-                    db.collection("hostels").document(hostelId)
-                        .collection("attendance_sessions")
+                withTimeoutOrNull(10000L) {
+                    sessionsCol(db, hostelId)
                         .whereGreaterThanOrEqualTo("localDate", startDate)
                         .whereLessThanOrEqualTo("localDate", endDate)
                         .get()
@@ -621,6 +704,7 @@ object FirestoreSyncService {
                 }
             } catch (_: Exception) { null }
 
+            val knownSessionIds = mutableSetOf<String>()
             if (sessionDocs != null && !sessionDocs.isEmpty) {
                 val sessions = sessionDocs.documents.mapNotNull { doc ->
                     val localDate = doc.getString("localDate") ?: return@mapNotNull null
@@ -638,15 +722,17 @@ object FirestoreSyncService {
                     )
                 }
                 if (sessions.isNotEmpty()) {
-                    sessionDao.insertSessions(sessions)
+                    knownSessionIds.addAll(sessions.map { it.sessionId })
+                    withContext(dbWriteDispatcher) {
+                        sessionDao.insertSessions(sessions)
+                    }
                     anyRestored = true
                 }
             }
 
             val recordDocs = try {
-                withTimeoutOrNull(10000L) {
-                    db.collection("hostels").document(hostelId)
-                        .collection("attendance_records")
+                withTimeoutOrNull(15000L) {
+                    recordsCol(db, hostelId)
                         .whereGreaterThanOrEqualTo("localDate", startDate)
                         .whereLessThanOrEqualTo("localDate", endDate)
                         .get()
@@ -677,32 +763,46 @@ object FirestoreSyncService {
                     )
                 }
                 if (records.isNotEmpty()) {
-                    records.chunked(300).forEach { chunk ->
-                        sessionDao.insertRecords(chunk)
+                    withContext(dbWriteDispatcher) {
+                        ensureParentSessionsExist(hostelId, records, sessionDao, knownSessionIds)
+                        records.chunked(300).forEach { chunk ->
+                            sessionDao.insertRecords(chunk)
+                        }
                     }
                     anyRestored = true
                 }
             }
-        } catch (_: Exception) {}
+            Log.d(TAG, "Restored date range [$startDate..$endDate] from Firestore (success=$anyRestored)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Date range query failed: ${e.message}")
+        }
 
-        // Fallback: If ranged query failed (e.g. index error or permission), restore all attendance
+        // Fallback to phased full restore if ranged query returned nothing
         if (!anyRestored) {
             restoreAttendanceFromFirestore(hostelId, sessionDao)
         }
     }
 
+    // =========================================================================
+    // 3. REAL-TIME SNAPSHOT LISTENERS (SEQUENTIAL & RACE-FREE)
+    // =========================================================================
+
+    /**
+     * Active real-time listener for current date and wing attendance.
+     * Guarantees sequential write dispatch to Room SQLite so live marking by an admin
+     * immediately appears on user session screens without locking or race conditions.
+     */
     fun listenToAttendanceRealtime(
         hostelId: String,
         localDate: String,
         wingId: String,
         sessionDao: AttendanceSessionDao,
-    ): com.google.firebase.firestore.ListenerRegistration? {
+    ): ListenerRegistration? {
         val db = firestore ?: return null
         val expectedSessionId = "$hostelId:$localDate:$wingId"
 
         return try {
-            val sessionQuery = db.collection("hostels").document(hostelId)
-                .collection("attendance_sessions")
+            val sessionQuery = sessionsCol(db, hostelId)
                 .whereEqualTo("localDate", localDate)
                 .whereEqualTo("wingId", wingId)
                 .limit(1)
@@ -722,13 +822,12 @@ object FirestoreSyncService {
                     savedBy = doc.getString("savedBy"),
                     version = doc.getLong("version") ?: 0L,
                 )
-                CoroutineScope(Dispatchers.IO).launch {
+                syncScope.launch(dbWriteDispatcher) {
                     sessionDao.insertSession(sessionEntity)
                 }
             }
 
-            val recordsQuery = db.collection("hostels").document(hostelId)
-                .collection("attendance_records")
+            val recordsQuery = recordsCol(db, hostelId)
                 .whereEqualTo("localDate", localDate)
                 .whereEqualTo("wingIdSnapshot", wingId)
 
@@ -755,7 +854,7 @@ object FirestoreSyncService {
                     )
                 }
                 if (records.isNotEmpty()) {
-                    CoroutineScope(Dispatchers.IO).launch {
+                    syncScope.launch(dbWriteDispatcher) {
                         val existing = sessionDao.findSession(hostelId, localDate, wingId)
                         if (existing == null) {
                             val syntheticSession = AttendanceSessionEntity(
@@ -776,14 +875,90 @@ object FirestoreSyncService {
                 }
             }
 
-            com.google.firebase.firestore.ListenerRegistration {
+            ListenerRegistration {
                 sessionReg.remove()
                 recordsReg.remove()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting up attendance realtime listener: ${e.message}")
             null
         }
     }
+
+    /**
+     * Real-time listener for Wings and Students roster.
+     */
+    fun listenToWingsAndStudentsRealtime(
+        hostelId: String,
+        wingDao: WingDao,
+        studentDao: StudentDao,
+    ): ListenerRegistration? {
+        val db = firestore ?: return null
+        return try {
+            val wingsReg = wingsCol(db, hostelId).addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val wings = snapshot.documents.mapNotNull { doc ->
+                    val name = doc.getString("name") ?: return@mapNotNull null
+                    WingEntity(
+                        wingId = doc.getString("wingId") ?: doc.id,
+                        hostelId = doc.getString("hostelId") ?: hostelId,
+                        name = name,
+                        normalizedName = doc.getString("normalizedName") ?: name.trim().uppercase(),
+                        isActive = doc.getBoolean("isActive") ?: true,
+                        updatedAtMillis = doc.getLong("updatedAtMillis") ?: System.currentTimeMillis(),
+                    )
+                }
+                if (wings.isNotEmpty()) {
+                    syncScope.launch(dbWriteDispatcher) {
+                        wingDao.insertWings(wings)
+                    }
+                }
+            }
+
+            val studentsReg = studentsCol(db, hostelId).addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val students = snapshot.documents.mapNotNull { doc ->
+                    val roll = doc.getString("rollNumber") ?: return@mapNotNull null
+                    val name = doc.getString("studentName") ?: return@mapNotNull null
+                    val wingId = doc.getString("currentWingId") ?: return@mapNotNull null
+                    val room = doc.getString("currentRoomNumber") ?: ""
+                    StudentEntity(
+                        studentId = doc.getString("studentId") ?: doc.id,
+                        hostelId = doc.getString("hostelId") ?: hostelId,
+                        rollNumber = roll,
+                        normalizedRollNumber = doc.getString("normalizedRollNumber") ?: roll.trim().uppercase(),
+                        currentWingId = wingId,
+                        currentRoomNumber = room,
+                        studentName = name,
+                        branch = doc.getString("branch")?.takeIf { it.isNotEmpty() },
+                        year = doc.getString("year")?.takeIf { it.isNotEmpty() },
+                        isActive = doc.getBoolean("isActive") ?: true,
+                        createdAtMillis = doc.getLong("createdAtMillis") ?: System.currentTimeMillis(),
+                        updatedAtMillis = doc.getLong("updatedAtMillis") ?: System.currentTimeMillis(),
+                    )
+                }
+                if (students.isNotEmpty()) {
+                    syncScope.launch(dbWriteDispatcher) {
+                        students.chunked(250).forEach { chunk ->
+                            studentDao.insertStudents(chunk)
+                        }
+                    }
+                }
+            }
+
+            ListenerRegistration {
+                wingsReg.remove()
+                studentsReg.remove()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting up roster realtime listener: ${e.message}")
+            null
+        }
+    }
+
+    // =========================================================================
+    // 4. COORDINATED FULL CLOUD SYNC (SETTINGS SCREEN & APP INITIALIZATION)
+    // =========================================================================
 
     data class SyncSummary(
         val restoredWings: Int,
@@ -792,16 +967,20 @@ object FirestoreSyncService {
         val restoredRecords: Int,
     )
 
+    /**
+     * Complete synchronization of all entities.
+     * Pushes local changes if administrator, then performs complete phased restoration.
+     */
     suspend fun syncAllData(
         hostelId: String,
-        database: com.hostelattendance.data.local.HostelDatabase,
+        database: HostelDatabase,
         isAdmin: Boolean = false,
     ): SyncSummary = withContext(Dispatchers.IO) {
         val wingDao = database.wingDao()
         val studentDao = database.studentDao()
         val sessionDao = database.attendanceSessionDao()
 
-        // 1. If admin, push local wings and students first
+        // 1. If administrator, push any local wings and students to cloud first
         if (isAdmin) {
             val localWings = wingDao.getAllActiveWings(hostelId)
             val localStudents = studentDao.getAllStudents(hostelId)
@@ -810,16 +989,10 @@ object FirestoreSyncService {
             }
         }
 
-        // 2. Restore wings and students from Firestore
+        // 2. Restore master roster from Firestore
         val (wCount, sCount) = restoreWingsAndStudentsFromFirestore(hostelId, wingDao, studentDao)
 
-        // 3. Fallback: seed if still empty
-        val currentStudents = studentDao.getAllStudents(hostelId)
-        if (currentStudents.isEmpty()) {
-            // Seeder can be called if needed by caller
-        }
-
-        // 4. Restore all attendance sessions and records from Firestore
+        // 3. Restore attendance sessions & records with phased recovery
         val (sessCount, recCount) = restoreAttendanceFromFirestore(hostelId, sessionDao)
 
         SyncSummary(
@@ -828,76 +1001,5 @@ object FirestoreSyncService {
             restoredSessions = sessCount,
             restoredRecords = recCount,
         )
-    }
-
-    fun listenToWingsAndStudentsRealtime(
-        hostelId: String,
-        wingDao: WingDao,
-        studentDao: StudentDao,
-    ): com.google.firebase.firestore.ListenerRegistration? {
-        val db = firestore ?: return null
-        return try {
-            val wingsReg = db.collection("hostels").document(hostelId)
-                .collection("wings")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null || snapshot == null) return@addSnapshotListener
-                    val wings = snapshot.documents.mapNotNull { doc ->
-                        val name = doc.getString("name") ?: return@mapNotNull null
-                        WingEntity(
-                            wingId = doc.getString("wingId") ?: doc.id,
-                            hostelId = doc.getString("hostelId") ?: hostelId,
-                            name = name,
-                            normalizedName = doc.getString("normalizedName") ?: name.trim().uppercase(),
-                            isActive = doc.getBoolean("isActive") ?: true,
-                            updatedAtMillis = doc.getLong("updatedAtMillis") ?: System.currentTimeMillis(),
-                        )
-                    }
-                    if (wings.isNotEmpty()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            wingDao.insertWings(wings)
-                        }
-                    }
-                }
-
-            val studentsReg = db.collection("hostels").document(hostelId)
-                .collection("students")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null || snapshot == null) return@addSnapshotListener
-                    val students = snapshot.documents.mapNotNull { doc ->
-                        val roll = doc.getString("rollNumber") ?: return@mapNotNull null
-                        val name = doc.getString("studentName") ?: return@mapNotNull null
-                        val wingId = doc.getString("currentWingId") ?: return@mapNotNull null
-                        val room = doc.getString("currentRoomNumber") ?: ""
-                        StudentEntity(
-                            studentId = doc.getString("studentId") ?: doc.id,
-                            hostelId = doc.getString("hostelId") ?: hostelId,
-                            rollNumber = roll,
-                            normalizedRollNumber = doc.getString("normalizedRollNumber") ?: roll.trim().uppercase(),
-                            currentWingId = wingId,
-                            currentRoomNumber = room,
-                            studentName = name,
-                            branch = doc.getString("branch")?.takeIf { it.isNotEmpty() },
-                            year = doc.getString("year")?.takeIf { it.isNotEmpty() },
-                            isActive = doc.getBoolean("isActive") ?: true,
-                            createdAtMillis = doc.getLong("createdAtMillis") ?: System.currentTimeMillis(),
-                            updatedAtMillis = doc.getLong("updatedAtMillis") ?: System.currentTimeMillis(),
-                        )
-                    }
-                    if (students.isNotEmpty()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            students.chunked(250).forEach { chunk ->
-                                studentDao.insertStudents(chunk)
-                            }
-                        }
-                    }
-                }
-
-            com.google.firebase.firestore.ListenerRegistration {
-                wingsReg.remove()
-                studentsReg.remove()
-            }
-        } catch (_: Exception) {
-            null
-        }
     }
 }
