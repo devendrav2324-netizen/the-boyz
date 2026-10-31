@@ -29,6 +29,13 @@ object DatabaseSeeder {
 
         var currentCount = 0
         try {
+            database.openHelper.writableDatabase.execSQL("UPDATE students SET hostelId = '$hostelId' WHERE hostelId = 'cgitr-boys'")
+            database.openHelper.writableDatabase.execSQL("UPDATE wings SET hostelId = '$hostelId' WHERE hostelId = 'cgitr-boys'")
+            database.openHelper.writableDatabase.execSQL("UPDATE attendance_sessions SET hostelId = '$hostelId' WHERE hostelId = 'cgitr-boys'")
+            database.openHelper.writableDatabase.execSQL("UPDATE attendance_records SET hostelId = '$hostelId' WHERE hostelId = 'cgitr-boys'")
+        } catch (_: Exception) {}
+
+        try {
             database.withTransaction {
                 val cursor = database.query("SELECT COUNT(*) FROM students WHERE hostelId = '$hostelId'", null)
                 if (cursor.moveToFirst()) {

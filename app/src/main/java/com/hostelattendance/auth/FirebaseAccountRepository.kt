@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
 
 private const val DESIGNATED_ADMIN_UID = "ZcAp0gt5OVSC2UeiVDqBmAGjhXD2"
-private const val DEFAULT_HOSTEL_ID = "cgitr-boys"
+private const val DEFAULT_HOSTEL_ID = "cgitr-boys-hostel"
 
 class FirebaseAccountRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -72,8 +72,11 @@ class FirebaseAccountRepository(context: Context) {
             }
 
             // Check if Firestore specifies a role
-            val role = snapshot?.getString("role") ?: "USER"
-            val hostelId = snapshot?.getString("hostelId") ?: DEFAULT_HOSTEL_ID
+            var role = snapshot?.getString("role")?.trim()
+            var hostelId = snapshot?.getString("hostelId")?.trim() ?: DEFAULT_HOSTEL_ID
+            if (hostelId == "cgitr-boys") hostelId = DEFAULT_HOSTEL_ID
+
+            var canRegisterStudents = snapshot?.getBoolean("canRegisterStudents")
             val isActive = snapshot?.getBoolean("isActive") ?: true
 
             if (!isActive) {
@@ -81,26 +84,45 @@ class FirebaseAccountRepository(context: Context) {
                 return
             }
 
-            val isAdminRole = (role == "ADMIN")
-            val wings = snapshot?.get("allowedWingIds") as? List<*> ?: emptyList<Any>()
-            val canRegisterStudents = isAdminRole && (snapshot?.getBoolean("canRegisterStudents") != false)
+            // Fallback check: If user profile in user_profiles is missing role, check hostel doc
+            if (role == null || !role.equals("ADMIN", ignoreCase = true)) {
+                try {
+                    val hostelSnap = FirebaseFirestore.getInstance()
+                        .collection("hostels")
+                        .document(hostelId)
+                        .get()
+                        .await()
+                    val hostelRole = hostelSnap?.getString("role")?.trim()
+                    if (hostelRole.equals("ADMIN", ignoreCase = true) || hostelSnap?.getBoolean("approved") == true) {
+                        role = "ADMIN"
+                        if (canRegisterStudents == null) {
+                            canRegisterStudents = hostelSnap?.getBoolean("canRegisterStudents") ?: true
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
 
-            // Save user profile to Firestore if missing
-            if (snapshot == null || !snapshot.exists()) {
+            val finalRole = role ?: "USER"
+            val isAdminRole = finalRole.equals("ADMIN", ignoreCase = true)
+            val wings = snapshot?.get("allowedWingIds") as? List<*> ?: emptyList<Any>()
+            val effectiveCanRegister = if (isAdminRole) (canRegisterStudents != false) else false
+
+            // Save or sync user profile to Firestore
+            if (snapshot == null || !snapshot.exists() || (isAdminRole && snapshot.getString("role") != "ADMIN")) {
                 try {
                     FirebaseFirestore.getInstance()
                         .collection("user_profiles")
                         .document(user.uid)
                         .set(
                             mapOf(
-                                "hostelId" to DEFAULT_HOSTEL_ID,
-                                "role" to "USER",
+                                "hostelId" to hostelId,
+                                "role" to if (isAdminRole) "ADMIN" else "USER",
                                 "email" to (user.email ?: ""),
                                 "displayName" to (user.displayName ?: ""),
                                 "approved" to true,
                                 "isActive" to true,
                                 "allowedWingIds" to emptyList<String>(),
-                                "canRegisterStudents" to false,
+                                "canRegisterStudents" to effectiveCanRegister,
                                 "createdAtMillis" to System.currentTimeMillis(),
                             ),
                             com.google.firebase.firestore.SetOptions.merge(),
@@ -114,7 +136,7 @@ class FirebaseAccountRepository(context: Context) {
                     hostelId = hostelId,
                     role = if (isAdminRole) "ADMIN" else "USER",
                     allowedWingIds = wings.filterIsInstance<String>().toSet(),
-                    canRegisterStudents = canRegisterStudents,
+                    canRegisterStudents = effectiveCanRegister,
                 ),
             )
         } catch (exception: Exception) {

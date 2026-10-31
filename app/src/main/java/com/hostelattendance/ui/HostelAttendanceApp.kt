@@ -145,7 +145,7 @@ fun HostelAttendanceApp() {
     }
 
     val approvedAccount = (accountAccess as? AccountAccess.Approved)?.account
-    val activeHostelId = approvedAccount?.hostelId ?: "cgitr-boys"
+    val activeHostelId = approvedAccount?.hostelId ?: "cgitr-boys-hostel"
     val allowedWings = approvedAccount?.allowedWingIds ?: emptySet()
     val isAdmin = approvedAccount?.role == "ADMIN"
     val canRegister = isAdmin && (approvedAccount?.canRegisterStudents ?: false)

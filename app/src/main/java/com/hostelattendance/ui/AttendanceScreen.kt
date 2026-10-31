@@ -70,7 +70,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private const val DEFAULT_HOSTEL_ID = "cgitr-boys"
+private const val DEFAULT_HOSTEL_ID = "cgitr-boys-hostel"
 private val attendanceDateFormatter = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)
 
 private val markableStatuses = listOf(
