@@ -60,10 +60,20 @@ object AppUpdateManager {
     const val GITHUB_ROOT_VERSION_NAME_URL = "https://raw.githubusercontent.com/devendrav2324-netizen/the-boyz/main/version_name"
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
+    const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
     const val DEFAULT_RELEASE_NOTES = "• In-App APK Updater with automatic GitHub version detection\n• Uninstall-proof phone backup in hostel_attendance_local_data\n• Local SQLite download history & timestamp tracking\n• Range-based attendance calculation\n• Liquid glassmorphism UI & Apple spring animations"
-    const val DEFAULT_LATEST_VERSION_CODE = 16
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.3"
+    const val DEFAULT_LATEST_VERSION_CODE = 17
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.4"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
+
+    /**
+     * Constructs the direct download URL for a specific versioned APK in GitHub.
+     * Rule: Each APK in GitHub apk/ folder is named <version_name>.apk (e.g. 1.13.4.apk).
+     */
+    fun getVersionedApkUrl(versionName: String): String {
+        val clean = versionName.trim().removePrefix("v").removePrefix("V")
+        return "$GITHUB_APK_BASE_URL/$clean.apk"
+    }
 
     /**
      * Compares two semantic version strings (e.g. "1.13.1" vs "1.13.0").
@@ -176,12 +186,13 @@ object AppUpdateManager {
         val githubVersion = fetchGitHubVersionName()
         if (!githubVersion.isNullOrBlank()) {
             val comparison = compareVersions(githubVersion, currentName)
+            val versionedApkUrl = getVersionedApkUrl(githubVersion)
             return@withContext if (comparison > 0) {
                 AppUpdateResult.UpdateAvailable(
                     updateInfo = AppUpdateInfo(
                         versionCode = currentCode + 1,
                         versionName = githubVersion,
-                        apkUrl = DEFAULT_APK_URL,
+                        apkUrl = versionedApkUrl,
                         releaseNotes = "• New version $githubVersion available on GitHub repository\n$DEFAULT_RELEASE_NOTES",
                         fileSizeMb = DEFAULT_FILE_SIZE_MB,
                         publishedAtMillis = System.currentTimeMillis(),
@@ -194,7 +205,7 @@ object AppUpdateManager {
                     currentVersionName = currentName,
                     currentVersionCode = currentCode,
                     remoteVersionName = githubVersion,
-                    latestApkUrl = DEFAULT_APK_URL,
+                    latestApkUrl = versionedApkUrl,
                 )
             }
         }
@@ -213,7 +224,7 @@ object AppUpdateManager {
 
             val remoteCode = doc?.getLong("versionCode")?.toInt() ?: DEFAULT_LATEST_VERSION_CODE
             val remoteName = doc?.getString("versionName")?.takeIf { it.isNotBlank() } ?: DEFAULT_LATEST_VERSION_NAME
-            val apkUrl = doc?.getString("apkUrl")?.trim()?.takeIf { it.isNotBlank() } ?: DEFAULT_APK_URL
+            val apkUrl = doc?.getString("apkUrl")?.trim()?.takeIf { it.isNotBlank() } ?: getVersionedApkUrl(remoteName)
             val releaseNotes = doc?.getString("releaseNotes")?.takeIf { it.isNotBlank() } ?: DEFAULT_RELEASE_NOTES
             val fileSizeMb = doc?.getString("fileSizeMb")?.takeIf { it.isNotBlank() } ?: DEFAULT_FILE_SIZE_MB
             val publishedAt = doc?.getLong("publishedAtMillis") ?: System.currentTimeMillis()
@@ -246,7 +257,7 @@ object AppUpdateManager {
                 currentVersionName = currentName,
                 currentVersionCode = currentCode,
                 remoteVersionName = currentName,
-                latestApkUrl = DEFAULT_APK_URL,
+                latestApkUrl = getVersionedApkUrl(currentName),
             )
         }
     }
