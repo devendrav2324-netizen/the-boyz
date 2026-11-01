@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import com.hostelattendance.domain.NaturalRollNumberComparator
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -126,9 +128,11 @@ private fun AttendanceScreen(
     val isPastDate = remember(selectedDate) { AttendanceRules.isPastDate(selectedDate) }
     var wingMenuExpanded by remember { mutableStateOf(false) }
     var showSaveConfirmation by remember { mutableStateOf(false) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
     var showAttendanceMarkedSuccessDialog by rememberSaveable { mutableStateOf(false) }
     var showReopenConfirmation by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
+    var isClearing by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
@@ -239,10 +243,13 @@ private fun AttendanceScreen(
 
     val records = remember(session?.records, session?.session?.state, activeStudentIds) {
         val raw = session?.records.orEmpty()
-        if (session?.session?.state == "DRAFT" && activeStudentIds.isNotEmpty()) {
+        val filtered = if (session?.session?.state == "DRAFT" && activeStudentIds.isNotEmpty()) {
             raw.filter { it.studentId in activeStudentIds }
         } else {
             raw
+        }
+        filtered.sortedWith { r1, r2 ->
+            NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
         }
     }
     val totals = remember(records) { AttendanceRules.totals(records.map { it.status }) }
@@ -513,6 +520,84 @@ private fun AttendanceScreen(
                 )
             }
 
+            if (canEdit && records.isNotEmpty()) {
+                item(key = "attendance_clear_selections") {
+                    val backdrop = LocalGlobalGlassBackdrop.current
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val clearInteractionSource = rememberMotionInteractionSource()
+                    val hasAnyMarked = totals.marked > 0
+
+                    val clearBtnModifier = if (backdrop != null) {
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .liquidGlassCapsuleEffect(
+                                backdrop = backdrop,
+                                density = density,
+                                blurRadius = 14.dp,
+                                surfaceColor = if (hasAnyMarked) Color(0x384A1C24) else Color(0x202B2836),
+                                borderWidth = 1.5.dp,
+                                borderBrush = Brush.verticalGradient(
+                                    if (hasAnyMarked) {
+                                        listOf(
+                                            Color(0xFFFF8A80).copy(alpha = 0.85f),
+                                            Color(0xFFEF5350).copy(alpha = 0.40f),
+                                            Color(0xFFE53935).copy(alpha = 0.15f),
+                                        )
+                                    } else {
+                                        listOf(
+                                            Color.White.copy(alpha = 0.35f),
+                                            Color.White.copy(alpha = 0.12f),
+                                            Color.Transparent,
+                                        )
+                                    }
+                                ),
+                            )
+                            .pressFeedback(clearInteractionSource)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .pressFeedback(clearInteractionSource)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (hasAnyMarked) {
+                                showClearConfirmation = true
+                            } else {
+                                android.widget.Toast.makeText(context, "No markings to clear", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = hasAnyMarked && !isSaving && !isClearing,
+                        interactionSource = clearInteractionSource,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (backdrop != null) Color.Transparent else Color(0x26EF5350),
+                            contentColor = if (hasAnyMarked) Color(0xFFFF8A80) else Color.White.copy(alpha = 0.40f),
+                            disabledContainerColor = if (backdrop != null) Color.Transparent else Color(0x15FFFFFF),
+                            disabledContentColor = Color.White.copy(alpha = 0.35f),
+                        ),
+                        modifier = clearBtnModifier,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "↺",
+                                fontWeight = FontWeight.ExtraBold,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = "Clear Selections",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
+
             item(key = "attendance_action_footer") {
                 if (!isAdmin) {
                     Card(
@@ -703,6 +788,36 @@ private fun AttendanceScreen(
             dismissText = null,
             onConfirm = { showAttendanceMarkedSuccessDialog = false },
             onDismiss = { showAttendanceMarkedSuccessDialog = false },
+        )
+    }
+
+    if (showClearConfirmation && session != null) {
+        AppleGlassDialog(
+            title = "Clear All Selections?",
+            message = "This will reset all ${totals.marked} marked attendance selections for ${selectedWing?.name ?: "this wing"} back to unselected.",
+            confirmText = "Clear Selections",
+            dismissText = "Cancel",
+            isDestructive = true,
+            onConfirm = {
+                showClearConfirmation = false
+                scope.launch {
+                    isClearing = true
+                    errorMessage = null
+                    try {
+                        val sessionId = session?.session?.sessionId
+                        if (sessionId != null) {
+                            repository.clearAllSelections(sessionId, isAdmin)
+                            infoMessage = "All attendance markings cleared."
+                            android.widget.Toast.makeText(context, "All selections cleared", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = e.message ?: "Could not clear selections."
+                    } finally {
+                        isClearing = false
+                    }
+                }
+            },
+            onDismiss = { showClearConfirmation = false },
         )
     }
 

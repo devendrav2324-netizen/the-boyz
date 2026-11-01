@@ -87,4 +87,13 @@ class AttendanceRulesTest {
             AttendanceRules.recordId("hostel-1", "student-1", date),
         )
     }
+
+    @Test
+    fun `natural roll number comparator sorts numeric and alphanumeric roll numbers in natural increasing order`() {
+        val unsorted = listOf("10", "2", "1", "20", "CS-10", "CS-2", "CS-1", "A-5", "A-05", "100", "B-1")
+        val sorted = unsorted.sortedWith(NaturalRollNumberComparator)
+        // 1, 2, 10, 20, 100, then alphanumeric groups sorted naturally
+        val expected = listOf("1", "2", "10", "20", "100", "A-5", "A-05", "B-1", "CS-1", "CS-2", "CS-10")
+        assertEquals(expected, sorted)
+    }
 }
