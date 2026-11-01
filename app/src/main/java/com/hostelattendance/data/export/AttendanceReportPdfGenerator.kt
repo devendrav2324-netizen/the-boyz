@@ -57,11 +57,11 @@ class AttendanceReportPdfGenerator {
 
         // Sort students matching student list standard: Room Number, Roll Number, Name
         val sortedStudents = students.sortedWith(
-            compareBy(
-                { it.currentRoomNumber },
-                { it.rollNumber.toIntOrNull() ?: 999999 },
-                { it.studentName },
-            ),
+            compareBy<StudentEntity> { it.currentRoomNumber }
+                .thenComparator { s1, s2 ->
+                    com.hostelattendance.domain.NaturalRollNumberComparator.compare(s1.rollNumber, s2.rollNumber)
+                }
+                .thenBy { it.studentName }
         )
 
         // Pre-index records by (studentId, date) and fallback (rollNumber, date)
@@ -84,20 +84,21 @@ class AttendanceReportPdfGenerator {
         val contentWidth = pageWidth - marginLeft - marginRight // 770 pt
 
         // Fixed columns: S.No. | Room Number | Student Name | Branch | Year
-        val sNoWidth = 30f
-        val roomWidth = 58f
-        val nameWidth = 142f
-        val branchWidth = 48f
-        val yearWidth = 36f
-        val fixedWidth = sNoWidth + roomWidth + nameWidth + branchWidth + yearWidth // 314 pt
+        val sNoWidth = 28f
+        val roomWidth = 52f
+        val nameWidth = 132f
+        val branchWidth = 46f
+        val yearWidth = 34f
+        val fixedWidth = sNoWidth + roomWidth + nameWidth + branchWidth + yearWidth // 292 pt
 
-        // Summary columns: Days Present (Individual student count of days present) | Days Absent
+        // Summary columns: Total Present | Total Absent | Total Leave
         val isSingleDay = dates.size == 1
-        val totPWidth = if (isSingleDay) 45f else 56f
-        val totAWidth = if (isSingleDay) 45f else 46f
-        val summaryWidth = totPWidth + totAWidth // 90-102 pt
+        val totPWidth = 54f
+        val totAWidth = 52f
+        val totLWidth = 50f
+        val summaryWidth = totPWidth + totAWidth + totLWidth // 156 pt
 
-        val remainingForDates = contentWidth - fixedWidth - summaryWidth // 366 pt
+        val remainingForDates = contentWidth - fixedWidth - summaryWidth // 322 pt
         val numDays = dates.size.coerceAtLeast(1)
         val dateColWidth = remainingForDates / numDays
 
@@ -136,6 +137,14 @@ class AttendanceReportPdfGenerator {
         val dateHeaderTextPaint = Paint().apply {
             color = Color.rgb(20, 25, 45)
             textSize = 8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+
+        val summaryHeaderTextPaint = Paint().apply {
+            color = Color.rgb(20, 25, 45)
+            textSize = 7f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
@@ -218,7 +227,7 @@ class AttendanceReportPdfGenerator {
                 val dayRate = (dayPresents * 100) / totalStudents
                 "   |   Day Attendance: $dayRate% ($dayPresents/$totalStudents Present)"
             } else {
-                "   |   Summary: Individual Days Present"
+                "   |   Summary: Total Present, Total Absent, Total Leave"
             }
             canvas.drawText("CGITR BOYS HOSTEL - ATTENDANCE REGISTER", marginLeft, currentY + 12f, titlePaint)
             currentY += 18f
@@ -258,20 +267,14 @@ class AttendanceReportPdfGenerator {
                 xCursor += dateColWidth
             }
 
-            // Summary Headers
-            val summaryHeaders = if (isSingleDay) {
-                listOf(
-                    Pair("Status", totPWidth),
-                    Pair("Days P", totAWidth),
-                )
-            } else {
-                listOf(
-                    Pair("Days Present", totPWidth),
-                    Pair("Days Absent", totAWidth),
-                )
-            }
+            // Summary Headers: Total Present | Total Absent | Total Leave
+            val summaryHeaders = listOf(
+                Pair("Total Present", totPWidth),
+                Pair("Total Absent", totAWidth),
+                Pair("Total Leave", totLWidth),
+            )
             for ((header, w) in summaryHeaders) {
-                canvas.drawText(header, xCursor + (w / 2f), currentY + 16f, dateHeaderTextPaint)
+                canvas.drawText(header, xCursor + (w / 2f), currentY + 16f, summaryHeaderTextPaint)
                 canvas.drawLine(xCursor + w, currentY, xCursor + w, currentY + headerRowHeight, gridPaint)
                 xCursor += w
             }
@@ -362,37 +365,20 @@ class AttendanceReportPdfGenerator {
                 val totalDaysInRange = dates.size.coerceAtLeast(1)
                 val effectiveAbsentCount = (totalDaysInRange - pCount - lCount).coerceAtLeast(0)
 
-                if (isSingleDay) {
-                    val statusStr = when {
-                        pCount > 0 -> "P"
-                        lCount > 0 -> "L"
-                        else -> "A"
-                    }
-                    val statusPaint = when (statusStr) {
-                        "P" -> presentPaint
-                        "L" -> leavePaint
-                        else -> absentPaint
-                    }
-                    canvas.drawText(statusStr, cellX + (totPWidth / 2f), currentY + 13f, statusPaint)
-                    canvas.drawLine(cellX + totPWidth, currentY, cellX + totPWidth, currentY + dataRowHeight, gridPaint)
-                    cellX += totPWidth
+                // 1. Total Present
+                canvas.drawText(pCount.toString(), cellX + (totPWidth / 2f), currentY + 13f, presentPaint)
+                canvas.drawLine(cellX + totPWidth, currentY, cellX + totPWidth, currentY + dataRowHeight, gridPaint)
+                cellX += totPWidth
 
-                    val pIndicator = if (pCount > 0) "1 Day" else "0 Days"
-                    canvas.drawText(pIndicator, cellX + (totAWidth / 2f), currentY + 13f, centerCellTextPaint)
-                    canvas.drawLine(cellX + totAWidth, currentY, cellX + totAWidth, currentY + dataRowHeight, gridPaint)
-                    cellX += totAWidth
-                } else {
-                    // Summary: Days Present (Number of days individual student is present)
-                    val daysPresentStr = "$pCount / $totalDaysInRange"
-                    canvas.drawText(daysPresentStr, cellX + (totPWidth / 2f), currentY + 13f, centerCellTextPaint)
-                    canvas.drawLine(cellX + totPWidth, currentY, cellX + totPWidth, currentY + dataRowHeight, gridPaint)
-                    cellX += totPWidth
+                // 2. Total Absent
+                canvas.drawText(effectiveAbsentCount.toString(), cellX + (totAWidth / 2f), currentY + 13f, absentPaint)
+                canvas.drawLine(cellX + totAWidth, currentY, cellX + totAWidth, currentY + dataRowHeight, gridPaint)
+                cellX += totAWidth
 
-                    // Summary: Days Absent
-                    canvas.drawText(effectiveAbsentCount.toString(), cellX + (totAWidth / 2f), currentY + 13f, centerCellTextPaint)
-                    canvas.drawLine(cellX + totAWidth, currentY, cellX + totAWidth, currentY + dataRowHeight, gridPaint)
-                    cellX += totAWidth
-                }
+                // 3. Total Leave
+                canvas.drawText(lCount.toString(), cellX + (totLWidth / 2f), currentY + 13f, leavePaint)
+                canvas.drawLine(cellX + totLWidth, currentY, cellX + totLWidth, currentY + dataRowHeight, gridPaint)
+                cellX += totLWidth
 
                 currentY += dataRowHeight
                 studentIndex++

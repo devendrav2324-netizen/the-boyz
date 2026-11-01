@@ -325,15 +325,15 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val initialOffset = if (movingRight) { w: Int -> (w * 0.12f).toInt() } else { w: Int -> -(w * 0.12f).toInt() }
+                        val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 350, easing = LinearOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.965f, animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                        ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
                     } else {
-                        fadeIn(tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.96f, animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
                     }
                 },
                 exitTransition = {
@@ -344,15 +344,15 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.08f).toInt() } else { w: Int -> (w * 0.08f).toInt() }
+                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing)) +
-                            scaleOut(targetScale = 0.965f, animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                        ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing)) +
+                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
                     } else {
-                        fadeOut(tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 0.96f, animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = 160, easing = FastOutSlowInEasing)) +
+                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
                     }
                 },
                 popEnterTransition = {
@@ -363,15 +363,15 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val initialOffset = if (movingRight) { w: Int -> (w * 0.12f).toInt() } else { w: Int -> -(w * 0.12f).toInt() }
+                        val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 350, easing = LinearOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.965f, animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                        ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
                     } else {
-                        fadeIn(tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.96f, animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
                     }
                 },
                 popExitTransition = {
@@ -382,15 +382,15 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.08f).toInt() } else { w: Int -> (w * 0.08f).toInt() }
+                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutLinearInEasing)) +
-                            scaleOut(targetScale = 0.965f, animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                        ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing)) +
+                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
                     } else {
-                        fadeOut(tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 0.96f, animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = 160, easing = FastOutSlowInEasing)) +
+                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
                     }
                 },
             ) {
@@ -673,12 +673,12 @@ private fun SegmentedNavigationBar(
                 val tabWidth = totalWidth / tabCount
                 val targetOffset = tabWidth * selectedIndex
 
-                // Fluid Apple-like smooth & slow spring glide (750–850ms, butter-smooth motion)
+                // Fast, responsive & buttery-smooth Apple spring glide
                 val indicatorOffset by animateDpAsState(
                     targetValue = targetOffset,
                     animationSpec = spring(
-                        dampingRatio = 0.86f,
-                        stiffness = 115f, // Smooth, slow, elegant and continuous glide
+                        dampingRatio = 0.78f,
+                        stiffness = 580f,
                     ),
                     label = "segmentedPillOffset",
                 )
@@ -688,8 +688,8 @@ private fun SegmentedNavigationBar(
                 val pillElevation by animateDpAsState(
                     targetValue = if (isGliding) 14.dp else 8.dp,
                     animationSpec = spring(
-                        dampingRatio = 0.86f,
-                        stiffness = 115f,
+                        dampingRatio = 0.78f,
+                        stiffness = 580f,
                     ),
                     label = "pillElevation",
                 )
@@ -780,12 +780,12 @@ private fun SegmentedNavigationBar(
                         val isSelected = selectedIndex == index
                         val interactionSource = rememberMotionInteractionSource()
 
-                        // Gentle scale feedback
+                        // Snappy, organic scale feedback
                         val iconScale by animateFloatAsState(
                             targetValue = if (isSelected) 1.08f else 1f,
                             animationSpec = spring(
-                                dampingRatio = 0.82f,
-                                stiffness = 160f,
+                                dampingRatio = 0.75f,
+                                stiffness = 500f,
                             ),
                             label = "${destination.route}IconScale",
                         )
@@ -793,7 +793,7 @@ private fun SegmentedNavigationBar(
                         // Synchronized text color transition from #777777 to White
                         val contentColor by animateColorAsState(
                             targetValue = if (isSelected) Color.White else Color(0xFF777777),
-                            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
                             label = "${destination.route}ContentColor",
                         )
 
