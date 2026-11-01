@@ -111,7 +111,7 @@ internal fun Modifier.pressFeedback(
             spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
         } else {
             // Apple-style tactile click bounce (wan apple middle bounce button.ffx)
-            spring(dampingRatio = 0.72f, stiffness = 240f)
+            spring(dampingRatio = 0.72f, stiffness = 340f)
         },
         label = "pressScaleFeedback",
     )

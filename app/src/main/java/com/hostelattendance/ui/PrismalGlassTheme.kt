@@ -50,26 +50,26 @@ fun Modifier.liquidGlassEffect(
     backdrop: PrismalGlassLayer?,
     density: Density,
     cornerRadius: Dp = 24.dp,
-    blurRadius: Dp = 16.dp,
-    refractionHeightPx: Float = 18f,
-    refractionAmountPx: Float = 26f,
+    blurRadius: Dp = 20.dp,
+    refractionHeightPx: Float = 22f,
+    refractionAmountPx: Float = 32f,
     surfaceColor: Color = Color(0x4C161324),
     specular: PrismalSpecular? = PrismalSpecular(
-        width = 1.2.dp,
-        alpha = 0.90f,
+        width = 1.5.dp,
+        alpha = 0.95f,
         style = PrismalSpecularStyle.Ambient,
     ),
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
-        radius = 18.dp,
-        color = Color.Black.copy(alpha = 0.38f),
+        radius = 20.dp,
+        color = Color.Black.copy(alpha = 0.42f),
     ),
     depthInset: PrismalDepthInset? = null,
-    borderWidth: Dp = 1.25.dp,
+    borderWidth: Dp = 1.5.dp,
     borderBrush: Brush = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = 0.65f),
-            Color.White.copy(alpha = 0.25f),
-            Color.White.copy(alpha = 0.10f),
+            Color.White.copy(alpha = 0.85f),
+            Color.White.copy(alpha = 0.35f),
+            Color.White.copy(alpha = 0.14f),
         ),
     ),
 ): Modifier {
@@ -89,9 +89,9 @@ fun Modifier.liquidGlassEffect(
                         blurRadiusPx = with(density) { blurRadius.toPx() },
                         refractionHeightPx = refractionHeightPx,
                         refractionAmountPx = refractionAmountPx,
-                        saturation = 1.35f,
+                        saturation = 1.45f,
                         depthEffect = true,
-                        chromaticAberration = 0.12f,
+                        chromaticAberration = 0.16f,
                         useVibrancy = true,
                     )
                 },
@@ -100,6 +100,17 @@ fun Modifier.liquidGlassEffect(
                 depthInset = if (depthInset != null) { { depthInset } } else null,
                 onDrawSurface = {
                     drawRect(surfaceColor)
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.14f),
+                                Color.White.copy(alpha = 0.03f),
+                                Color.Transparent,
+                            ),
+                            startY = 0f,
+                            endY = size.height * 0.45f,
+                        ),
+                    )
                 },
             )
             .border(
@@ -135,30 +146,30 @@ fun Modifier.liquidGlassEffect(
 
 /**
  * Capsule-shaped variant of the Prismal Liquid Glass modifier (for buttons, pills, chips).
- * Configured with high-visibility radiant corner and edge highlights.
+ * Configured with enhanced liquid glass refraction, chromatic aberration, and radiant highlights.
  */
 fun Modifier.liquidGlassCapsuleEffect(
     backdrop: PrismalGlassLayer?,
     density: Density,
-    blurRadius: Dp = 14.dp,
-    refractionHeightPx: Float = 14f,
-    refractionAmountPx: Float = 20f,
+    blurRadius: Dp = 16.dp,
+    refractionHeightPx: Float = 18f,
+    refractionAmountPx: Float = 26f,
     surfaceColor: Color = Color(0x4D201C2E),
     specular: PrismalSpecular? = PrismalSpecular(
-        width = 1.5.dp,
-        alpha = 0.95f,
+        width = 1.75.dp,
+        alpha = 0.98f,
         style = PrismalSpecularStyle.Ambient,
     ),
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
-        radius = 12.dp,
-        color = Color.Black.copy(alpha = 0.28f),
+        radius = 14.dp,
+        color = Color.Black.copy(alpha = 0.35f),
     ),
-    borderWidth: Dp = 1.5.dp,
+    borderWidth: Dp = 1.75.dp,
     borderBrush: Brush = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = 0.80f),
-            Color.White.copy(alpha = 0.38f),
-            Color.White.copy(alpha = 0.16f),
+            Color.White.copy(alpha = 0.90f),
+            Color.White.copy(alpha = 0.45f),
+            Color.White.copy(alpha = 0.20f),
         ),
     ),
 ): Modifier {
@@ -178,9 +189,9 @@ fun Modifier.liquidGlassCapsuleEffect(
                         blurRadiusPx = with(density) { blurRadius.toPx() },
                         refractionHeightPx = refractionHeightPx,
                         refractionAmountPx = refractionAmountPx,
-                        saturation = 1.30f,
+                        saturation = 1.40f,
                         depthEffect = true,
-                        chromaticAberration = 0.08f,
+                        chromaticAberration = 0.14f,
                         useVibrancy = true,
                     )
                 },
@@ -188,6 +199,17 @@ fun Modifier.liquidGlassCapsuleEffect(
                 depthShadow = if (depthShadow != null) { { depthShadow } } else null,
                 onDrawSurface = {
                     drawRect(surfaceColor)
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.16f),
+                                Color.White.copy(alpha = 0.04f),
+                                Color.Transparent,
+                            ),
+                            startY = 0f,
+                            endY = size.height * 0.50f,
+                        ),
+                    )
                 },
             )
             .border(

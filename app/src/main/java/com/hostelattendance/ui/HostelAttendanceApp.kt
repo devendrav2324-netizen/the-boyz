@@ -1153,9 +1153,9 @@ internal fun GlassPanel(
                 backdrop = backdrop,
                 density = density,
                 cornerRadius = cornerRadius,
-                blurRadius = 18.dp,
-                refractionHeightPx = 18f,
-                refractionAmountPx = 24f,
+                blurRadius = 22.dp,
+                refractionHeightPx = 22f,
+                refractionAmountPx = 32f,
                 surfaceColor = Color(0x4C161324),
             )
             .padding(contentPadding),

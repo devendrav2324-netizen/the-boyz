@@ -7,7 +7,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -244,8 +247,10 @@ private fun AttendanceScreen(
     }
     val totals = remember(records) { AttendanceRules.totals(records.map { it.status }) }
     val selectedWing = wings.firstOrNull { it.wingId == selectedWingId }
+    val listState = rememberLazyListState()
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
@@ -841,14 +846,18 @@ private fun LazyItemScope.AttendanceRecordCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .animateItem()
+            .animateItem(
+                fadeInSpec = tween(durationMillis = 100, easing = LinearOutSlowInEasing),
+                fadeOutSpec = tween(durationMillis = 100, easing = FastOutLinearInEasing),
+                placementSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium)
+            )
             .liquidGlassEffect(
                 backdrop = backdrop,
                 density = density,
                 cornerRadius = 20.dp,
-                blurRadius = 14.dp,
-                refractionHeightPx = 14f,
-                refractionAmountPx = 20f,
+                blurRadius = 18.dp,
+                refractionHeightPx = 18f,
+                refractionAmountPx = 28f,
                 surfaceColor = Color(0x4C161324),
             )
             .padding(14.dp),
@@ -939,23 +948,23 @@ private fun LazyItemScope.AttendanceRecordCard(
                     }
                     val backgroundColor by animateColorAsState(
                         targetValue = if (selected) {
-                            statusAccent.copy(alpha = 0.32f)
+                            statusAccent.copy(alpha = 0.35f)
                         } else {
                             Color(0x14FFFFFF)
                         },
-                        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = 90, easing = FastOutSlowInEasing),
                         label = "${status.name}StatusColor",
                     )
                     val borderColor by animateColorAsState(
                         targetValue = if (selected) statusAccent.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.32f),
-                        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = 90, easing = FastOutSlowInEasing),
                         label = "${status.name}BorderColor",
                     )
                     val scale by animateFloatAsState(
                         targetValue = if (selected) 1.05f else 1f,
                         animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium,
+                            dampingRatio = 0.70f,
+                            stiffness = Spring.StiffnessHigh,
                         ),
                         label = "${status.name}Scale",
                     )
