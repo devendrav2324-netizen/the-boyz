@@ -15,14 +15,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PendingOperationEntity::class,
         SyncStateEntity::class,
         AuditEventCacheEntity::class,
+        AppUpdateHistoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class HostelDatabase : RoomDatabase() {
     abstract fun attendanceSessionDao(): AttendanceSessionDao
     abstract fun studentDao(): StudentDao
     abstract fun wingDao(): WingDao
+    abstract fun appUpdateDao(): AppUpdateDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -38,6 +40,28 @@ abstract class HostelDatabase : RoomDatabase() {
                         ''
                     )
                     """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `app_update_history` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `versionName` TEXT NOT NULL,
+                        `versionCode` INTEGER NOT NULL,
+                        `downloadedAtMillis` INTEGER NOT NULL,
+                        `formattedDate` TEXT NOT NULL,
+                        `fileSizeBytes` INTEGER NOT NULL,
+                        `apkSourceUrl` TEXT NOT NULL,
+                        `status` TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_app_update_history_downloadedAtMillis` ON `app_update_history` (`downloadedAtMillis`)",
                 )
             }
         }

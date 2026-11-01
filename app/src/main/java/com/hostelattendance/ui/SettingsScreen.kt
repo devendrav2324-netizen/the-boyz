@@ -42,6 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hostelattendance.BuildConfig
 import com.hostelattendance.HostelAttendanceApplication
+import com.hostelattendance.data.backup.BackupResult
+import com.hostelattendance.data.backup.PersistentBackupManager
+import com.hostelattendance.data.local.AppUpdateHistoryEntity
 import com.hostelattendance.data.sync.FirestoreSyncService
 import com.hostelattendance.data.update.AppUpdateManager
 import com.hostelattendance.data.update.AppUpdateResult
@@ -68,6 +71,10 @@ fun SettingsScreen(
 
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
 
+    val latestDownload by application.database.appUpdateDao().getLatestDownloadFlow().collectAsState(initial = null)
+    var backupMetadata by remember { mutableStateOf(PersistentBackupManager.getLastBackupMetadata(context)) }
+    var isBackingUp by remember { mutableStateOf(false) }
+
     var updateResult by remember { mutableStateOf<AppUpdateResult?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var isDownloadingUpdate by remember { mutableStateOf(false) }
@@ -78,6 +85,7 @@ fun SettingsScreen(
         isCheckingUpdate = true
         updateResult = AppUpdateManager.checkForUpdates()
         isCheckingUpdate = false
+        backupMetadata = PersistentBackupManager.getLastBackupMetadata(context)
     }
 
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -325,6 +333,8 @@ fun SettingsScreen(
                                         database = application.database,
                                         isAdmin = (role == "ADMIN"),
                                     )
+                                    PersistentBackupManager.performBackup(context, application.database)
+                                    backupMetadata = PersistentBackupManager.getLastBackupMetadata(context)
                                     Toast.makeText(
                                         context,
                                         "Sync complete! ${summary.restoredStudents} students, ${summary.restoredWings} wings, ${summary.restoredRecords} attendance records synced.",
@@ -397,7 +407,7 @@ fun SettingsScreen(
                                     .padding(horizontal = 10.dp, vertical = 4.dp),
                             ) {
                                 Text(
-                                    text = "Update Available",
+                                    text = "Updates Available to download",
                                     color = Color(0xFF60A5FA),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
@@ -413,7 +423,7 @@ fun SettingsScreen(
                                     .padding(horizontal = 10.dp, vertical = 4.dp),
                             ) {
                                 Text(
-                                    text = "Latest Version",
+                                    text = "No updates available",
                                     color = Color(0xFF34D399),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
@@ -422,6 +432,11 @@ fun SettingsScreen(
                         }
                         else -> {}
                     }
+                }
+
+                SettingRow(label = "Installed Version", value = "v${BuildConfig.VERSION_NAME}")
+                latestDownload?.let { dl ->
+                    SettingRow(label = "Last Downloaded", value = "v${dl.versionName} (${dl.formattedDate})")
                 }
 
                 // If Update Available: Details & Download Button
@@ -504,6 +519,9 @@ fun SettingsScreen(
                                             val file = AppUpdateManager.downloadApk(
                                                 context = context,
                                                 apkUrl = info.apkUrl,
+                                                versionName = info.versionName,
+                                                versionCode = info.versionCode,
+                                                database = application.database,
                                                 onProgress = { fraction, downloaded, total ->
                                                     downloadProgressFraction = fraction
                                                     val downMb = String.format(java.util.Locale.US, "%.1f", downloaded / (1024f * 1024f))
@@ -548,13 +566,13 @@ fun SettingsScreen(
                                 isCheckingUpdate = false
                                 when (res) {
                                     is AppUpdateResult.UpToDate -> {
-                                        Toast.makeText(context, "You are using the latest version (v${res.currentVersionName})", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "No updates available (v${res.currentVersionName})", Toast.LENGTH_SHORT).show()
                                     }
                                     is AppUpdateResult.Error -> {
                                         Toast.makeText(context, "Update check: ${res.message}", Toast.LENGTH_SHORT).show()
                                     }
                                     is AppUpdateResult.UpdateAvailable -> {
-                                        Toast.makeText(context, "New version available: ${res.updateInfo.versionName}!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Updates Available to download: v${res.updateInfo.versionName}!", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -579,6 +597,105 @@ fun SettingsScreen(
                         } else {
                             Text("🔄  Check for Updates", fontWeight = FontWeight.SemiBold)
                         }
+                    }
+                }
+            }
+        }
+
+        // Persistent Phone Storage Backup Card (Survives App Uninstall)
+        item(key = "settings_persistent_backup") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Persistent Phone Storage",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Survives App Uninstall • hostel_attendance_local_data",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x333B82F6),
+                        border = BorderStroke(1.dp, Color(0x6660A5FA)),
+                    ) {
+                        Text(
+                            text = "Protected",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF93C5FD),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        )
+                    }
+                }
+
+                SettingRow(label = "Storage Folder", value = "Documents/hostel_attendance_local_data")
+                SettingRow(
+                    label = "Last Phone Backup",
+                    value = backupMetadata?.formattedDate ?: "Auto-syncs on launch",
+                )
+                SettingRow(
+                    label = "Data Preserved",
+                    value = "${backupMetadata?.studentCount ?: activeCount} students, ${backupMetadata?.recordCount ?: 0} records",
+                )
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isBackingUp = true
+                            try {
+                                val result = PersistentBackupManager.performBackup(context, application.database)
+                                when (result) {
+                                    is BackupResult.Success -> {
+                                        backupMetadata = result.metadata
+                                        Toast.makeText(
+                                            context,
+                                            "Saved to hostel_attendance_local_data! (${result.metadata.studentCount} students, ${result.metadata.recordCount} records preserved)",
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
+                                    is BackupResult.Error -> {
+                                        Toast.makeText(context, "Backup failed: ${result.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            } finally {
+                                isBackingUp = false
+                            }
+                        }
+                    },
+                    enabled = !isBackingUp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1E293B),
+                        contentColor = Color(0xFF60A5FA),
+                    ),
+                    border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.4f)),
+                ) {
+                    if (isBackingUp) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color(0xFF60A5FA),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text("💾  Backup to Phone Storage Now", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

@@ -199,4 +199,13 @@ interface AttendanceSessionDao {
         """,
     )
     suspend fun findRecordsForStudent(studentId: String): List<AttendanceRecordEntity>
+
+    @Query("SELECT * FROM attendance_sessions")
+    suspend fun getAllSessions(): List<AttendanceSessionEntity>
+
+    @Query("SELECT * FROM attendance_records")
+    suspend fun getAllRecords(): List<AttendanceRecordEntity>
+
+    @Query("SELECT COUNT(*) FROM attendance_sessions")
+    suspend fun getTotalSessionCount(): Int
 }

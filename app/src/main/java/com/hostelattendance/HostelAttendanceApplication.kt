@@ -18,7 +18,7 @@ class HostelAttendanceApplication : Application() {
             applicationContext,
             HostelDatabase::class.java,
             "hostel-attendance.db",
-        ).addMigrations(HostelDatabase.MIGRATION_1_2).build()
+        ).addMigrations(HostelDatabase.MIGRATION_1_2, HostelDatabase.MIGRATION_2_3).build()
     }
 
     override fun onCreate() {
@@ -28,8 +28,24 @@ class HostelAttendanceApplication : Application() {
         } catch (_: Exception) {}
         appScope.launch {
             try {
+                // 1. Try restoring from persistent phone storage (hostel_attendance_local_data) if reinstalled
+                val restoreResult = com.hostelattendance.data.backup.PersistentBackupManager.restoreIfAvailable(
+                    this@HostelAttendanceApplication,
+                    database,
+                )
+                android.util.Log.i("HostelApp", "Persistent storage restore on launch: $restoreResult")
+
+                // 2. Seed database if needed
                 DatabaseSeeder.seedIfNeeded(this@HostelAttendanceApplication, database, "cgitr-boys-hostel")
-            } catch (_: Exception) {}
+
+                // 3. Ensure phone storage backup is updated
+                com.hostelattendance.data.backup.PersistentBackupManager.performBackup(
+                    this@HostelAttendanceApplication,
+                    database,
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("HostelApp", "Startup storage error: ${e.message}")
+            }
         }
     }
 

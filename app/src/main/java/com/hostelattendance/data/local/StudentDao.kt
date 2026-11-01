@@ -128,6 +128,12 @@ interface StudentDao {
         hostelId: String,
         wingId: String,
     ): List<StudentWithWingName>
+
+    @Query("SELECT * FROM students")
+    suspend fun getAllStudentsAllHostels(): List<StudentEntity>
+
+    @Query("SELECT COUNT(*) FROM students")
+    suspend fun getTotalStudentCount(): Int
 }
 
 data class StudentWithWingName(

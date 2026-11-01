@@ -43,4 +43,10 @@ interface WingDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWings(wings: List<WingEntity>)
+
+    @Query("SELECT * FROM wings")
+    suspend fun getAllWings(): List<WingEntity>
+
+    @Query("SELECT COUNT(*) FROM wings")
+    suspend fun getWingCount(): Int
 }
