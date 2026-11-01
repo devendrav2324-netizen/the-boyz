@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -207,7 +208,17 @@ fun SettingsScreen(
                         .shadow(8.dp, RoundedCornerShape(25.dp))
                         .clip(RoundedCornerShape(25.dp))
                         .background(Color(0xFF222026))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(25.dp))
+                        .border(
+                            1.5.dp,
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.80f),
+                                    Color.White.copy(alpha = 0.38f),
+                                    Color.White.copy(alpha = 0.16f),
+                                ),
+                            ),
+                            RoundedCornerShape(25.dp),
+                        )
                         .pressFeedback(interactionSource)
                 }
 
@@ -561,8 +572,9 @@ fun SettingsScreen(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(44.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.5.dp, Color(0xFF93C5FD).copy(alpha = 0.90f)),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF2563EB),
                                     contentColor = Color.White,
@@ -597,13 +609,13 @@ fun SettingsScreen(
                         enabled = !isCheckingUpdate,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
+                            .height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1E293B),
                             contentColor = Color(0xFF93C5FD),
                         ),
-                        border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.4f)),
+                        border = BorderStroke(1.5.dp, Color(0xFF60A5FA).copy(alpha = 0.85f)),
                     ) {
                         if (isCheckingUpdate) {
                             CircularProgressIndicator(

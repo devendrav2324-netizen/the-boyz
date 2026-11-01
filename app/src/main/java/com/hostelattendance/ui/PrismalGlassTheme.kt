@@ -54,41 +54,59 @@ fun Modifier.liquidGlassEffect(
     refractionHeightPx: Float = 18f,
     refractionAmountPx: Float = 26f,
     surfaceColor: Color = Color(0x4C161324),
-    specular: PrismalSpecular? = PrismalSpecular.Default,
+    specular: PrismalSpecular? = PrismalSpecular(
+        width = 1.2.dp,
+        alpha = 0.90f,
+        style = PrismalSpecularStyle.Ambient,
+    ),
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
         radius = 18.dp,
         color = Color.Black.copy(alpha = 0.38f),
     ),
     depthInset: PrismalDepthInset? = null,
+    borderWidth: Dp = 1.25.dp,
+    borderBrush: Brush = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = 0.65f),
+            Color.White.copy(alpha = 0.25f),
+            Color.White.copy(alpha = 0.10f),
+        ),
+    ),
 ): Modifier {
     val shape = PrismalRoundedRectangle(cornerRadius)
     val fallbackShape = RoundedCornerShape(cornerRadius)
 
     return if (backdrop != null) {
-        this.drawPrismalGlass(
-            backdrop = backdrop,
-            shape = { shape },
-            effects = {
-                applyPrismalGlassEffects(
-                    density = density,
-                    adaptiveLuminance = false,
-                    luminance = 0.5f,
-                    blurRadiusPx = with(density) { blurRadius.toPx() },
-                    refractionHeightPx = refractionHeightPx,
-                    refractionAmountPx = refractionAmountPx,
-                    saturation = 1.35f,
-                    depthEffect = true,
-                    chromaticAberration = 0.12f,
-                    useVibrancy = true,
-                )
-            },
-            specular = if (specular != null) { { specular } } else null,
-            depthShadow = if (depthShadow != null) { { depthShadow } } else null,
-            depthInset = if (depthInset != null) { { depthInset } } else null,
-            onDrawSurface = {
-                drawRect(surfaceColor)
-            },
-        )
+        this
+            .drawPrismalGlass(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    applyPrismalGlassEffects(
+                        density = density,
+                        adaptiveLuminance = false,
+                        luminance = 0.5f,
+                        blurRadiusPx = with(density) { blurRadius.toPx() },
+                        refractionHeightPx = refractionHeightPx,
+                        refractionAmountPx = refractionAmountPx,
+                        saturation = 1.35f,
+                        depthEffect = true,
+                        chromaticAberration = 0.12f,
+                        useVibrancy = true,
+                    )
+                },
+                specular = if (specular != null) { { specular } } else null,
+                depthShadow = if (depthShadow != null) { { depthShadow } } else null,
+                depthInset = if (depthInset != null) { { depthInset } } else null,
+                onDrawSurface = {
+                    drawRect(surfaceColor)
+                },
+            )
+            .border(
+                width = borderWidth,
+                brush = borderBrush,
+                shape = fallbackShape,
+            )
     } else {
         this
             .shadow(
@@ -108,14 +126,8 @@ fun Modifier.liquidGlassEffect(
                 ),
             )
             .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color(0x80FFFFFF),
-                        Color(0x20FFFFFF),
-                        Color(0x08FFFFFF),
-                    ),
-                ),
+                width = borderWidth,
+                brush = borderBrush,
                 shape = fallbackShape,
             )
     }
@@ -123,6 +135,7 @@ fun Modifier.liquidGlassEffect(
 
 /**
  * Capsule-shaped variant of the Prismal Liquid Glass modifier (for buttons, pills, chips).
+ * Configured with high-visibility radiant corner and edge highlights.
  */
 fun Modifier.liquidGlassCapsuleEffect(
     backdrop: PrismalGlassLayer?,
@@ -131,39 +144,57 @@ fun Modifier.liquidGlassCapsuleEffect(
     refractionHeightPx: Float = 14f,
     refractionAmountPx: Float = 20f,
     surfaceColor: Color = Color(0x4D201C2E),
-    specular: PrismalSpecular? = PrismalSpecular(style = PrismalSpecularStyle.Ambient),
+    specular: PrismalSpecular? = PrismalSpecular(
+        width = 1.5.dp,
+        alpha = 0.95f,
+        style = PrismalSpecularStyle.Ambient,
+    ),
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
         radius = 12.dp,
         color = Color.Black.copy(alpha = 0.28f),
+    ),
+    borderWidth: Dp = 1.5.dp,
+    borderBrush: Brush = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = 0.80f),
+            Color.White.copy(alpha = 0.38f),
+            Color.White.copy(alpha = 0.16f),
+        ),
     ),
 ): Modifier {
     val shape = PrismalCapsule()
     val fallbackShape = RoundedCornerShape(percent = 50)
 
     return if (backdrop != null) {
-        this.drawPrismalGlass(
-            backdrop = backdrop,
-            shape = { shape },
-            effects = {
-                applyPrismalGlassEffects(
-                    density = density,
-                    adaptiveLuminance = false,
-                    luminance = 0.5f,
-                    blurRadiusPx = with(density) { blurRadius.toPx() },
-                    refractionHeightPx = refractionHeightPx,
-                    refractionAmountPx = refractionAmountPx,
-                    saturation = 1.30f,
-                    depthEffect = true,
-                    chromaticAberration = 0.08f,
-                    useVibrancy = true,
-                )
-            },
-            specular = if (specular != null) { { specular } } else null,
-            depthShadow = if (depthShadow != null) { { depthShadow } } else null,
-            onDrawSurface = {
-                drawRect(surfaceColor)
-            },
-        )
+        this
+            .drawPrismalGlass(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    applyPrismalGlassEffects(
+                        density = density,
+                        adaptiveLuminance = false,
+                        luminance = 0.5f,
+                        blurRadiusPx = with(density) { blurRadius.toPx() },
+                        refractionHeightPx = refractionHeightPx,
+                        refractionAmountPx = refractionAmountPx,
+                        saturation = 1.30f,
+                        depthEffect = true,
+                        chromaticAberration = 0.08f,
+                        useVibrancy = true,
+                    )
+                },
+                specular = if (specular != null) { { specular } } else null,
+                depthShadow = if (depthShadow != null) { { depthShadow } } else null,
+                onDrawSurface = {
+                    drawRect(surfaceColor)
+                },
+            )
+            .border(
+                width = borderWidth,
+                brush = borderBrush,
+                shape = fallbackShape,
+            )
     } else {
         this
             .shadow(
@@ -182,13 +213,8 @@ fun Modifier.liquidGlassCapsuleEffect(
                 ),
             )
             .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color(0x60FFFFFF),
-                        Color(0x18FFFFFF),
-                    ),
-                ),
+                width = borderWidth,
+                brush = borderBrush,
                 shape = fallbackShape,
             )
     }

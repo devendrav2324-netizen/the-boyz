@@ -947,7 +947,7 @@ private fun LazyItemScope.AttendanceRecordCard(
                         label = "${status.name}StatusColor",
                     )
                     val borderColor by animateColorAsState(
-                        targetValue = if (selected) statusAccent.copy(alpha = 0.90f) else Color(0x18FFFFFF),
+                        targetValue = if (selected) statusAccent.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.32f),
                         animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
                         label = "${status.name}BorderColor",
                     )
@@ -963,7 +963,8 @@ private fun LazyItemScope.AttendanceRecordCard(
                         onClick = { onStatusSelected(status) },
                         enabled = !saved,
                         interactionSource = statusInteractionSource,
-                        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(if (selected) 2.dp else 1.25.dp, borderColor),
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 48.dp)
