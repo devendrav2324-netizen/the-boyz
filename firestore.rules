@@ -17,5 +17,9 @@ service cloud.firestore {
         allow read, write: if signedIn();
       }
     }
+
+    match /app_updates/{docId} {
+      allow read, write: if signedIn();
+    }
   }
 }

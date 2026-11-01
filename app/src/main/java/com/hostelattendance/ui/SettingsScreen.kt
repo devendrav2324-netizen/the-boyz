@@ -19,10 +19,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +40,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hostelattendance.BuildConfig
 import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.sync.FirestoreSyncService
+import com.hostelattendance.data.update.AppUpdateManager
+import com.hostelattendance.data.update.AppUpdateResult
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,6 +67,18 @@ fun SettingsScreen(
     val wingsCount = remember(allWings) { allWings.size }
 
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
+
+    var updateResult by remember { mutableStateOf<AppUpdateResult?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var isDownloadingUpdate by remember { mutableStateOf(false) }
+    var downloadProgressFraction by remember { mutableStateOf(0f) }
+    var downloadProgressText by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        isCheckingUpdate = true
+        updateResult = AppUpdateManager.checkForUpdates()
+        isCheckingUpdate = false
+    }
 
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val timeGreeting = when (hour) {
@@ -338,6 +355,230 @@ fun SettingsScreen(
                         )
                     } else {
                         Text("☁  Sync Cloud Now", fontWeight = FontWeight.Bold, color = Color(0xFF34D399))
+                    }
+                }
+            }
+        }
+
+        // App Updates Card
+        item(key = "settings_app_updates") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "App Updates",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Installed: v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    // Status Badge
+                    when (updateResult) {
+                        is AppUpdateResult.UpdateAvailable -> {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF3B82F6).copy(alpha = 0.2f))
+                                    .border(1.dp, Color(0xFF60A5FA), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = "Update Available",
+                                    color = Color(0xFF60A5FA),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        is AppUpdateResult.UpToDate -> {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                    .border(1.dp, Color(0xFF34D399).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = "Latest Version",
+                                    color = Color(0xFF34D399),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+
+                // If Update Available: Details & Download Button
+                val available = updateResult as? AppUpdateResult.UpdateAvailable
+                if (available != null) {
+                    val info = available.updateInfo
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF1E293B).copy(alpha = 0.6f))
+                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "New Version: ${info.versionName}",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            if (info.fileSizeMb.isNotBlank()) {
+                                Text(
+                                    text = "${info.fileSizeMb} MB",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF94A3B8),
+                                )
+                            }
+                        }
+
+                        if (info.releaseNotes.isNotBlank()) {
+                            Text(
+                                text = info.releaseNotes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFCBD5E1),
+                            )
+                        }
+
+                        if (isDownloadingUpdate) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (downloadProgressFraction >= 0f) {
+                                    LinearProgressIndicator(
+                                        progress = { downloadProgressFraction },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                        color = Color(0xFF3B82F6),
+                                        trackColor = Color(0xFF334155),
+                                    )
+                                } else {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                        color = Color(0xFF3B82F6),
+                                        trackColor = Color(0xFF334155),
+                                    )
+                                }
+                                Text(
+                                    text = downloadProgressText.ifBlank { "Downloading update..." },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF94A3B8),
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        isDownloadingUpdate = true
+                                        downloadProgressFraction = 0f
+                                        downloadProgressText = "Connecting..."
+                                        try {
+                                            val file = AppUpdateManager.downloadApk(
+                                                context = context,
+                                                apkUrl = info.apkUrl,
+                                                onProgress = { fraction, downloaded, total ->
+                                                    downloadProgressFraction = fraction
+                                                    val downMb = String.format(java.util.Locale.US, "%.1f", downloaded / (1024f * 1024f))
+                                                    downloadProgressText = if (total > 0) {
+                                                        val totalMb = String.format(java.util.Locale.US, "%.1f", total / (1024f * 1024f))
+                                                        "${(fraction * 100).toInt()}% ($downMb MB / $totalMb MB)"
+                                                    } else {
+                                                        "$downMb MB downloaded"
+                                                    }
+                                                }
+                                            )
+                                            downloadProgressText = "Installing update..."
+                                            AppUpdateManager.installApk(context, file)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                        } finally {
+                                            isDownloadingUpdate = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2563EB),
+                                    contentColor = Color.White,
+                                ),
+                            ) {
+                                Text("⬇  Download & Install Update", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                } else {
+                    // Check for Updates Button
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isCheckingUpdate = true
+                                val res = AppUpdateManager.checkForUpdates()
+                                updateResult = res
+                                isCheckingUpdate = false
+                                when (res) {
+                                    is AppUpdateResult.UpToDate -> {
+                                        Toast.makeText(context, "You are using the latest version (v${res.currentVersionName})", Toast.LENGTH_SHORT).show()
+                                    }
+                                    is AppUpdateResult.Error -> {
+                                        Toast.makeText(context, "Update check: ${res.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    is AppUpdateResult.UpdateAvailable -> {
+                                        Toast.makeText(context, "New version available: ${res.updateInfo.versionName}!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isCheckingUpdate,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1E293B),
+                            contentColor = Color(0xFF93C5FD),
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFF3B82F6).copy(alpha = 0.4f)),
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color(0xFF93C5FD),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("🔄  Check for Updates", fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
