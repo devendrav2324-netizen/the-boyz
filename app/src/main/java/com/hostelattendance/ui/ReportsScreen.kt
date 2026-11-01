@@ -132,6 +132,20 @@ fun ReportsScreen(
     val startDate = today
     val endDate = today
 
+    var rangeStartDateString by rememberSaveable {
+        mutableStateOf(today.minusDays(6).toString())
+    }
+    var rangeEndDateString by rememberSaveable {
+        mutableStateOf(today.toString())
+    }
+    val rangeStartDate = remember(rangeStartDateString) {
+        try { LocalDate.parse(rangeStartDateString) } catch (_: Exception) { today.minusDays(6) }
+    }
+    val rangeEndDate = remember(rangeEndDateString) {
+        try { LocalDate.parse(rangeEndDateString) } catch (_: Exception) { today }
+    }
+    var isPrintingRange by remember { mutableStateOf(false) }
+
     var selectedScopeName by rememberSaveable { mutableStateOf(ReportScope.HOSTEL.name) }
     val selectedScope = remember(selectedScopeName) {
         ReportScope.entries.find { it.name == selectedScopeName } ?: ReportScope.HOSTEL
@@ -563,15 +577,23 @@ fun ReportsScreen(
                             blurRadius = 14.dp,
                             refractionHeightPx = 14f,
                             refractionAmountPx = 20f,
-                            surfaceColor = Color(0x5500897B),
+                            surfaceColor = Color(0x501C1A25),
+                            borderWidth = 1.dp,
+                            borderBrush = Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.50f),
+                                    Color.White.copy(alpha = 0.15f),
+                                    Color.Transparent,
+                                )
+                            ),
                             specular = com.styropyr0.prismal.specular.PrismalSpecular(
                                 width = 1.dp,
-                                alpha = 0.90f,
+                                alpha = 0.85f,
                                 style = com.styropyr0.prismal.specular.PrismalSpecularStyle.Ambient,
                             ),
                             depthShadow = com.styropyr0.prismal.depth.PrismalDepthShadow(
                                 radius = 12.dp,
-                                color = Color.Black.copy(alpha = 0.35f),
+                                color = Color.Black.copy(alpha = 0.40f),
                             ),
                         )
                         .pressFeedback(exportPdfInteraction)
@@ -600,7 +622,7 @@ fun ReportsScreen(
                     shape = RoundedCornerShape(26.dp),
                     modifier = exportBtnModifier,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.secondary,
+                        containerColor = if (backdrop != null) Color.Transparent else Color(0xFF282534),
                         contentColor = Color.White,
                     ),
                 ) {
@@ -614,6 +636,158 @@ fun ReportsScreen(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                         )
+                    }
+                }
+            }
+        }
+
+        // SECTION: Export pdf for Date Range
+        item(key = "reports_date_range_section") {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Export pdf for Date Range",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = "${rangeStartDate.format(dateButtonFormatter)} – ${rangeEndDate.format(dateButtonFormatter)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+
+                ArchedGlassCalendar(
+                    startDate = rangeStartDate,
+                    endDate = rangeEndDate,
+                    onDateRangeSelected = { newStart, newEnd ->
+                        rangeStartDateString = newStart.toString()
+                        rangeEndDateString = newEnd.toString()
+                    },
+                    maxRangeDays = 15,
+                )
+
+                // Print Button (Greyish Black Glass Theme)
+                val backdrop = LocalGlobalGlassBackdrop.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val printInteraction = rememberMotionInteractionSource()
+                val printBtnModifier = if (backdrop != null) {
+                    Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(50.dp)
+                        .liquidGlassCapsuleEffect(
+                            backdrop = backdrop,
+                            density = density,
+                            blurRadius = 14.dp,
+                            refractionHeightPx = 14f,
+                            refractionAmountPx = 20f,
+                            surfaceColor = Color(0x501C1A25),
+                            borderWidth = 1.dp,
+                            borderBrush = Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.50f),
+                                    Color.White.copy(alpha = 0.15f),
+                                    Color.Transparent,
+                                )
+                            ),
+                            specular = com.styropyr0.prismal.specular.PrismalSpecular(
+                                width = 1.dp,
+                                alpha = 0.85f,
+                                style = com.styropyr0.prismal.specular.PrismalSpecularStyle.Ambient,
+                            ),
+                            depthShadow = com.styropyr0.prismal.depth.PrismalDepthShadow(
+                                radius = 12.dp,
+                                color = Color.Black.copy(alpha = 0.40f),
+                            ),
+                        )
+                        .pressFeedback(printInteraction)
+                } else {
+                    Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(50.dp)
+                        .pressFeedback(printInteraction)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isPrintingRange = true
+                                try {
+                                    com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+                                        hostelId = hostelId,
+                                        startDate = rangeStartDate.toString(),
+                                        endDate = rangeEndDate.toString(),
+                                        sessionDao = application.database.attendanceSessionDao(),
+                                    )
+                                    val rangeRecords = application.database.attendanceSessionDao()
+                                        .getRecordsForDateRange(
+                                            hostelId = hostelId,
+                                            startDate = rangeStartDate.toString(),
+                                            endDate = rangeEndDate.toString(),
+                                        )
+                                    val filteredRangeRecords = rangeRecords.filter { record ->
+                                        val matchesScope = when (selectedScope) {
+                                            ReportScope.HOSTEL -> true
+                                            ReportScope.WING -> selectedWingId.isBlank() || record.wingIdSnapshot == selectedWingId
+                                            ReportScope.STUDENT -> true
+                                        }
+                                        val matchesSearch = searchQuery.isBlank() ||
+                                            record.rollNumberSnapshot.contains(searchQuery.trim(), ignoreCase = true) ||
+                                            record.studentNameSnapshot.contains(searchQuery.trim(), ignoreCase = true) ||
+                                            record.roomNumberSnapshot.contains(searchQuery.trim(), ignoreCase = true)
+                                        matchesScope && matchesSearch
+                                    }
+                                    AttendanceReportPdfGenerator().generateAndSharePdf(
+                                        context = context,
+                                        hostelId = hostelId,
+                                        startDate = rangeStartDate,
+                                        endDate = rangeEndDate,
+                                        students = studentsForPdf,
+                                        records = filteredRangeRecords,
+                                        wingName = wings.firstOrNull { it.wingId == selectedWingId }?.name,
+                                        filterDescription = if (searchQuery.isNotBlank()) "Search: $searchQuery" else null,
+                                    )
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Could not generate PDF: ${e.message}", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isPrintingRange = false
+                                }
+                            }
+                        },
+                        enabled = studentsForPdf.isNotEmpty() && !isPrintingRange,
+                        interactionSource = printInteraction,
+                        shape = RoundedCornerShape(25.dp),
+                        modifier = printBtnModifier,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (backdrop != null) Color.Transparent else Color(0xFF282534),
+                            contentColor = Color.White,
+                            disabledContainerColor = if (backdrop != null) Color.Transparent else Color(0x33282534),
+                            disabledContentColor = Color.White.copy(alpha = 0.4f),
+                        ),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(text = "🖨️", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = if (isPrintingRange) "Preparing PDF..." else "Print",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
             }

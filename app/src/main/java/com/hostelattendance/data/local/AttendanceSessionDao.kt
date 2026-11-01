@@ -159,6 +159,19 @@ interface AttendanceSessionDao {
 
     @Query(
         """
+        SELECT * FROM attendance_records
+        WHERE hostelId = :hostelId AND localDate >= :startDate AND localDate <= :endDate
+        ORDER BY localDate DESC, wingIdSnapshot ASC, rollNumberSnapshot ASC
+        """,
+    )
+    suspend fun getRecordsForDateRange(
+        hostelId: String,
+        startDate: String,
+        endDate: String,
+    ): List<AttendanceRecordEntity>
+
+    @Query(
+        """
         UPDATE attendance_sessions
         SET state = 'DRAFT', version = version + 1
         WHERE sessionId = :sessionId AND state = 'SAVED'
