@@ -51,8 +51,8 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val DEFAULT_RELEASE_NOTES = "• In-App APK Updater with one-tap installation\n• Native Cloud Firestore Sync & multi-device recovery\n• Range-based attendance calculation\n• Liquid glassmorphism UI & Apple spring animations"
-    const val DEFAULT_LATEST_VERSION_CODE = 2
-    const val DEFAULT_LATEST_VERSION_NAME = "0.2.0"
+    const val DEFAULT_LATEST_VERSION_CODE = 13
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.0"
     const val DEFAULT_FILE_SIZE_MB = "23.8"
 
     /**

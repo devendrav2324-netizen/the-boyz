@@ -599,7 +599,7 @@ fun SettingsScreen(
                 )
 
                 SettingRow(label = "Application", value = "Hostel Attendance App")
-                SettingRow(label = "Version", value = "2.0.0")
+                SettingRow(label = "Version", value = BuildConfig.VERSION_NAME)
                 SettingRow(label = "Designer and Developer", value = "Devendra Vishwakarma")
                 SettingRow(label = "Design System", value = "Motorsport Glassmorphism")
             }
