@@ -208,6 +208,13 @@ fun HostelAttendanceApp() {
             activeHostelId,
             app.database.attendanceSessionDao(),
         )
+
+        // 5. Ensure app update release metadata is published in Cloud Firestore
+        if (isAdmin) {
+            try {
+                com.hostelattendance.data.update.AppUpdateManager.publishUpdateMetadata()
+            } catch (_: Exception) {}
+        }
     }
 
     DisposableEffect(activeHostelId, approvedAccount?.uid) {

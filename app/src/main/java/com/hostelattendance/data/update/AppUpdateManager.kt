@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.hostelattendance.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -30,6 +31,7 @@ sealed interface AppUpdateResult {
     data class UpToDate(
         val currentVersionName: String,
         val currentVersionCode: Int,
+        val latestApkUrl: String = AppUpdateManager.DEFAULT_APK_URL,
     ) : AppUpdateResult
 
     data class UpdateAvailable(
@@ -47,30 +49,85 @@ object AppUpdateManager {
     private const val UPDATES_COLLECTION = "app_updates"
     private const val LATEST_DOC_ID = "latest"
 
+    const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
+    const val DEFAULT_RELEASE_NOTES = "• In-App APK Updater with one-tap installation\n• Native Cloud Firestore Sync & multi-device recovery\n• Range-based attendance calculation\n• Liquid glassmorphism UI & Apple spring animations"
+    const val DEFAULT_LATEST_VERSION_CODE = 2
+    const val DEFAULT_LATEST_VERSION_NAME = "0.2.0"
+    const val DEFAULT_FILE_SIZE_MB = "23.8"
+
     /**
-     * Checks Cloud Firestore for a newer version than current BuildConfig.VERSION_CODE
+     * Publishes or updates the latest release metadata in Cloud Firestore.
+     */
+    suspend fun publishUpdateMetadata(
+        versionCode: Int = DEFAULT_LATEST_VERSION_CODE,
+        versionName: String = DEFAULT_LATEST_VERSION_NAME,
+        apkUrl: String = DEFAULT_APK_URL,
+        releaseNotes: String = DEFAULT_RELEASE_NOTES,
+        fileSizeMb: String = DEFAULT_FILE_SIZE_MB,
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            FirebaseFirestore.getInstance()
+                .collection(UPDATES_COLLECTION)
+                .document(LATEST_DOC_ID)
+                .set(
+                    mapOf(
+                        "versionCode" to versionCode,
+                        "versionName" to versionName,
+                        "apkUrl" to apkUrl,
+                        "releaseNotes" to releaseNotes,
+                        "fileSizeMb" to fileSizeMb,
+                        "publishedAtMillis" to System.currentTimeMillis(),
+                    ),
+                    SetOptions.merge()
+                )
+                .await()
+            Log.d(TAG, "Published app update metadata to Firestore: v$versionName (code $versionCode)")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to publish app update metadata: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Checks Cloud Firestore for a newer version than current BuildConfig.VERSION_CODE.
+     * If document is missing in Firestore, seeds it automatically with the GitHub release URL.
      */
     suspend fun checkForUpdates(): AppUpdateResult = withContext(Dispatchers.IO) {
         val currentCode = BuildConfig.VERSION_CODE
         val currentName = BuildConfig.VERSION_NAME
 
         try {
-            val doc = FirebaseFirestore.getInstance()
-                .collection(UPDATES_COLLECTION)
-                .document(LATEST_DOC_ID)
-                .get()
-                .await()
-
-            if (!doc.exists()) {
-                return@withContext AppUpdateResult.UpToDate(currentName, currentCode)
+            val doc = try {
+                FirebaseFirestore.getInstance()
+                    .collection(UPDATES_COLLECTION)
+                    .document(LATEST_DOC_ID)
+                    .get()
+                    .await()
+            } catch (e: Exception) {
+                null
             }
 
-            val remoteCode = doc.getLong("versionCode")?.toInt() ?: 0
-            val remoteName = doc.getString("versionName") ?: ""
-            val apkUrl = doc.getString("apkUrl")?.trim() ?: ""
-            val releaseNotes = doc.getString("releaseNotes") ?: ""
-            val fileSizeMb = doc.getString("fileSizeMb") ?: ""
-            val publishedAt = doc.getLong("publishedAtMillis") ?: 0L
+            // Read remote metadata with graceful defaults to the GitHub release APK
+            val remoteCode = doc?.getLong("versionCode")?.toInt() ?: DEFAULT_LATEST_VERSION_CODE
+            val remoteName = doc?.getString("versionName")?.takeIf { it.isNotBlank() } ?: DEFAULT_LATEST_VERSION_NAME
+            val apkUrl = doc?.getString("apkUrl")?.trim()?.takeIf { it.isNotBlank() } ?: DEFAULT_APK_URL
+            val releaseNotes = doc?.getString("releaseNotes")?.takeIf { it.isNotBlank() } ?: DEFAULT_RELEASE_NOTES
+            val fileSizeMb = doc?.getString("fileSizeMb")?.takeIf { it.isNotBlank() } ?: DEFAULT_FILE_SIZE_MB
+            val publishedAt = doc?.getLong("publishedAtMillis") ?: System.currentTimeMillis()
+
+            // If the document was missing in Cloud Firestore, seed it in background so other devices see it
+            if (doc == null || !doc.exists()) {
+                try {
+                    publishUpdateMetadata(
+                        versionCode = remoteCode,
+                        versionName = remoteName,
+                        apkUrl = apkUrl,
+                        releaseNotes = releaseNotes,
+                        fileSizeMb = fileSizeMb,
+                    )
+                } catch (_: Exception) {}
+            }
 
             if (remoteCode > currentCode && apkUrl.isNotBlank()) {
                 val updateInfo = AppUpdateInfo(
@@ -87,11 +144,27 @@ object AppUpdateManager {
                     currentVersionCode = currentCode,
                 )
             } else {
-                AppUpdateResult.UpToDate(currentName, currentCode)
+                AppUpdateResult.UpToDate(currentName, currentCode, apkUrl)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error checking for updates: ${e.message}")
-            AppUpdateResult.Error(e.message ?: "Failed to check for updates.")
+            // Fallback to update available via direct GitHub release URL if currentCode is 1
+            if (currentCode < DEFAULT_LATEST_VERSION_CODE) {
+                AppUpdateResult.UpdateAvailable(
+                    updateInfo = AppUpdateInfo(
+                        versionCode = DEFAULT_LATEST_VERSION_CODE,
+                        versionName = DEFAULT_LATEST_VERSION_NAME,
+                        apkUrl = DEFAULT_APK_URL,
+                        releaseNotes = DEFAULT_RELEASE_NOTES,
+                        fileSizeMb = DEFAULT_FILE_SIZE_MB,
+                        publishedAtMillis = System.currentTimeMillis(),
+                    ),
+                    currentVersionName = currentName,
+                    currentVersionCode = currentCode,
+                )
+            } else {
+                AppUpdateResult.UpToDate(currentName, currentCode, DEFAULT_APK_URL)
+            }
         }
     }
 
