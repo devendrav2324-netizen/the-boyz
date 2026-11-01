@@ -149,9 +149,35 @@ fun ReportsScreen(
     var selectedWingId by rememberSaveable { mutableStateOf("") }
     var wingDropdownExpanded by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var isSuggestionTrayVisible by remember { mutableStateOf(false) }
     var selectedRecordForSideOption by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
     val scope = rememberCoroutineScope()
     var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
+
+    val allStudents by application.studentRepository.observeAllStudents(hostelId)
+        .collectAsState(initial = emptyList())
+
+    val studentSuggestions = remember(searchQuery, allStudents) {
+        val q = searchQuery.trim()
+        if (q.isBlank()) {
+            emptyList()
+        } else {
+            allStudents
+                .filter { student ->
+                    student.studentName.contains(q, ignoreCase = true) ||
+                        student.currentRoomNumber.contains(q, ignoreCase = true) ||
+                        student.rollNumber.contains(q, ignoreCase = true)
+                }
+                .sortedWith(
+                    compareBy(
+                        { !it.studentName.startsWith(q, ignoreCase = true) && !it.currentRoomNumber.startsWith(q, ignoreCase = true) },
+                        { it.currentRoomNumber },
+                        { it.studentName },
+                    ),
+                )
+                .take(6)
+        }
+    }
 
     LaunchedEffect(wings.isEmpty()) {
         if (wings.isEmpty()) {
@@ -178,9 +204,6 @@ fun ReportsScreen(
             sessionDao = application.database.attendanceSessionDao(),
         )
     }
-
-    val allStudents by application.studentRepository.observeAllStudents(hostelId)
-        .collectAsState(initial = emptyList())
 
     val filteredRecords = remember(rawRecords, selectedScope, selectedWingId, searchQuery) {
         rawRecords.filter { record ->
@@ -235,6 +258,7 @@ fun ReportsScreen(
     }
 
     val daysInRange = (ChronoUnit.DAYS.between(startDate, endDate) + 1).toInt().coerceAtLeast(1)
+    val isSingleDay = startDate == endDate || daysInRange == 1
     val studentCount = studentsForPdf.size.coerceAtLeast(1)
     val totalStudentDays = studentCount * daysInRange
 
@@ -243,7 +267,8 @@ fun ReportsScreen(
     val effectiveAbsentCount = (totalStudentDays - presentCount - leaveCount).coerceAtLeast(0)
     val notMarkedCount = filteredRecords.count { it.status == AttendanceStatus.NOT_MARKED.name }
     val totalRecords = filteredRecords.size
-    val attendanceRate = if (totalStudentDays > 0) (presentCount * 100) / totalStudentDays else 0
+    val singleDayRate = if (studentCount > 0) ((presentCount * 100) / studentCount).coerceIn(0, 100) else 0
+    val dailyAvgRate = if (totalStudentDays > 0) ((presentCount * 100) / totalStudentDays).coerceIn(0, 100) else 0
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -302,7 +327,13 @@ fun ReportsScreen(
                                 .clickable(
                                     interactionSource = tabInteraction,
                                     indication = null,
-                                ) { selectedScopeName = scope.name },
+                                ) {
+                                    selectedScopeName = scope.name
+                                    if (scope != ReportScope.STUDENT) {
+                                        searchQuery = ""
+                                        isSuggestionTrayVisible = false
+                                    }
+                                },
                         ) {
                             Text(
                                 text = when (scope) {
@@ -363,19 +394,117 @@ fun ReportsScreen(
                     }
                 }
 
-                // Search field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search by roll no., name, room") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
+                // Search field + Autocomplete Suggestion Tray - ONLY visible when Scope == STUDENT!
+                AnimatedVisibility(
+                    visible = selectedScope == ReportScope.STUDENT,
+                    enter = expandVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)) + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                isSuggestionTrayVisible = it.isNotBlank()
+                            },
+                            placeholder = { Text("Search by student name or room number") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0x22FFFFFF),
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .clickable {
+                                                searchQuery = ""
+                                                isSuggestionTrayVisible = false
+                                            },
+                                    ) {
+                                        Text(
+                                            text = "✕",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        )
+
+                        // Option Tray (Suggestions matching name or room number)
+                        AnimatedVisibility(
+                            visible = isSuggestionTrayVisible && studentSuggestions.isNotEmpty(),
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut(),
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xF21F1C28),
+                                border = BorderStroke(1.dp, Color(0x40FFFFFF)),
+                                shadowElevation = 10.dp,
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                ) {
+                                    studentSuggestions.forEach { student ->
+                                        val wingName = wings.firstOrNull { it.wingId == student.currentWingId }?.name ?: "Wing"
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    searchQuery = student.studentName
+                                                    isSuggestionTrayVisible = false
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 9.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = student.studentName,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                                Text(
+                                                    text = "Roll: ${student.rollNumber} · $wingName",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                                            ) {
+                                                Text(
+                                                    text = "Room ${student.currentRoomNumber}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -393,15 +522,29 @@ fun ReportsScreen(
                     ReportStatItem(label = "Present", count = presentCount, color = Color(0xFF4CAF50))
                     ReportStatItem(label = "Absent", count = effectiveAbsentCount, color = Color(0xFFE53935))
                     ReportStatItem(label = "Leave", count = leaveCount, color = Color(0xFFFFA000))
-                    ReportStatItem(label = "Attendance", count = "$attendanceRate%", color = MaterialTheme.colorScheme.primary)
+                    if (isSingleDay) {
+                        ReportStatItem(label = "Attendance", count = "$singleDayRate%", color = MaterialTheme.colorScheme.primary)
+                    } else if (selectedScope == ReportScope.STUDENT || studentsForPdf.size == 1) {
+                        ReportStatItem(label = "Days Present", count = "$presentCount / $daysInRange", color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        ReportStatItem(label = "Daily Avg", count = "$dailyAvgRate%", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val subtitleStats = if (isSingleDay) {
+                        "$studentCount residents · $presentCount present · $effectiveAbsentCount absent"
+                    } else if (selectedScope == ReportScope.STUDENT || studentsForPdf.size == 1) {
+                        val sName = studentsForPdf.firstOrNull()?.studentName ?: "Student"
+                        "$sName: $presentCount days present out of $daysInRange days"
+                    } else {
+                        "$totalStudentDays student-days ($daysInRange days · $effectiveAbsentCount absent)"
+                    }
                     Text(
-                        text = "$totalStudentDays student-days ($daysInRange days · $effectiveAbsentCount absent)",
+                        text = subtitleStats,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
