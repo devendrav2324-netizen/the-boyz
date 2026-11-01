@@ -248,8 +248,24 @@ private fun AttendanceScreen(
         } else {
             raw
         }
-        filtered.sortedWith { r1, r2 ->
-            NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
+        if (session?.session?.state == "DRAFT") {
+            // Unmarked students stay at the top arranged in natural roll number order
+            val unmarked = filtered.filter { it.status == AttendanceStatus.NOT_MARKED.name }
+                .sortedWith { r1, r2 ->
+                    NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
+                }
+            // Marked students move to the end of the page in order of when they were marked (updatedAtMillis ascending)
+            // so the next selected box gets placed below the first one, and so on.
+            val marked = filtered.filter { it.status != AttendanceStatus.NOT_MARKED.name }
+                .sortedWith { r1, r2 ->
+                    val timeComp = r1.updatedAtMillis.compareTo(r2.updatedAtMillis)
+                    if (timeComp != 0) timeComp else NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
+                }
+            unmarked + marked
+        } else {
+            filtered.sortedWith { r1, r2 ->
+                NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
+            }
         }
     }
     val totals = remember(records) { AttendanceRules.totals(records.map { it.status }) }
@@ -962,9 +978,9 @@ private fun LazyItemScope.AttendanceRecordCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateItem(
-                fadeInSpec = tween(durationMillis = 100, easing = LinearOutSlowInEasing),
-                fadeOutSpec = tween(durationMillis = 100, easing = FastOutLinearInEasing),
-                placementSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMedium)
+                fadeInSpec = tween(durationMillis = 110, easing = LinearOutSlowInEasing),
+                fadeOutSpec = tween(durationMillis = 90, easing = FastOutLinearInEasing),
+                placementSpec = spring(dampingRatio = 0.78f, stiffness = 550f)
             )
             .liquidGlassEffect(
                 backdrop = backdrop,
@@ -1067,12 +1083,12 @@ private fun LazyItemScope.AttendanceRecordCard(
                         } else {
                             Color(0x14FFFFFF)
                         },
-                        animationSpec = tween(durationMillis = 90, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = 65, easing = FastOutSlowInEasing),
                         label = "${status.name}StatusColor",
                     )
                     val borderColor by animateColorAsState(
                         targetValue = if (selected) statusAccent.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.32f),
-                        animationSpec = tween(durationMillis = 90, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = 65, easing = FastOutSlowInEasing),
                         label = "${status.name}BorderColor",
                     )
                     val scale by animateFloatAsState(

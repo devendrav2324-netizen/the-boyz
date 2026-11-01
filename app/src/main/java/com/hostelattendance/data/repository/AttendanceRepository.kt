@@ -12,7 +12,11 @@ import com.hostelattendance.data.local.WingEntity
 import com.hostelattendance.domain.AttendanceRules
 import com.hostelattendance.domain.AttendanceSessionState
 import com.hostelattendance.domain.AttendanceStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 interface AttendanceRepository {
@@ -81,6 +85,8 @@ class RoomAttendanceRepository(
     private val studentDao: StudentDao,
     private val wingDao: WingDao,
 ) : AttendanceRepository {
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     override fun observeWings(hostelId: String): Flow<List<WingEntity>> =
         wingDao.observeActiveWings(hostelId)
 
@@ -260,15 +266,22 @@ class RoomAttendanceRepository(
         )
         check(updated == 1) { "This attendance record could not be updated." }
 
-        // Immediately sync marked attendance change to Cloud Firestore online
-        val updatedRecord = sessionDao.findSessionWithRecords(sessionId)?.records?.firstOrNull { it.recordId == recordId }
-        if (updatedRecord != null) {
-            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceRecord(
-                hostelId = sessionWithRecords.session.hostelId,
-                record = updatedRecord,
-            )
+        // Asynchronously sync marked attendance change to Cloud Firestore & trigger persistent backup
+        // so UI updates instantaneously with zero lag
+        repositoryScope.launch {
+            try {
+                val updatedRecord = sessionDao.findSessionWithRecords(sessionId)?.records?.firstOrNull { it.recordId == recordId }
+                if (updatedRecord != null) {
+                    com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceRecord(
+                        hostelId = sessionWithRecords.session.hostelId,
+                        record = updatedRecord,
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AttendanceRepo", "Async firestore sync failed: ${e.message}")
+            }
+            com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
         }
-        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun save(

@@ -88,6 +88,7 @@ import com.hostelattendance.data.local.StudentEntity
 import com.hostelattendance.data.repository.AttendanceRepository
 import com.hostelattendance.domain.AttendanceRules
 import com.hostelattendance.domain.AttendanceStatus
+import com.hostelattendance.domain.NaturalRollNumberComparator
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import java.io.File
@@ -128,18 +129,8 @@ fun ReportsScreen(
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
     val today = remember { AttendanceRules.today() }
-    var startDateString by rememberSaveable {
-        mutableStateOf(today.minusDays(6).toString())
-    }
-    var endDateString by rememberSaveable {
-        mutableStateOf(today.toString())
-    }
-    val startDate = remember(startDateString) {
-        try { LocalDate.parse(startDateString) } catch (_: Exception) { today.minusDays(6) }
-    }
-    val endDate = remember(endDateString) {
-        try { LocalDate.parse(endDateString) } catch (_: Exception) { today }
-    }
+    val startDate = today
+    val endDate = today
 
     var selectedScopeName by rememberSaveable { mutableStateOf(ReportScope.HOSTEL.name) }
     val selectedScope = remember(selectedScopeName) {
@@ -193,20 +184,20 @@ fun ReportsScreen(
         }
     }
 
-    val rawRecords by repository.observeRecordsForDateRange(hostelId, startDate.toString(), endDate.toString())
+    val rawRecords by repository.observeRecordsForDateRange(hostelId, today.toString(), today.toString())
         .collectAsState(initial = emptyList())
 
-    LaunchedEffect(hostelId, startDateString, endDateString) {
+    LaunchedEffect(hostelId, today) {
         com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
             hostelId = hostelId,
-            startDate = startDate.toString(),
-            endDate = endDate.toString(),
+            startDate = today.toString(),
+            endDate = today.toString(),
             sessionDao = application.database.attendanceSessionDao(),
         )
     }
 
     val filteredRecords = remember(rawRecords, selectedScope, selectedWingId, searchQuery) {
-        rawRecords.filter { record ->
+        val list = rawRecords.filter { record ->
             val matchesScope = when (selectedScope) {
                 ReportScope.HOSTEL -> true
                 ReportScope.WING -> selectedWingId.isBlank() || record.wingIdSnapshot == selectedWingId
@@ -218,6 +209,9 @@ fun ReportsScreen(
                 record.roomNumberSnapshot.contains(searchQuery.trim(), ignoreCase = true)
 
             matchesScope && matchesSearch
+        }
+        list.sortedWith { r1, r2 ->
+            NaturalRollNumberComparator.compare(r1.rollNumberSnapshot, r2.rollNumberSnapshot)
         }
     }
 
@@ -285,7 +279,7 @@ fun ReportsScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "${startDate.format(dateButtonFormatter)} – ${endDate.format(dateButtonFormatter)} · ${selectedScope.label}",
+                    text = "${today.format(dateButtonFormatter)} · ${selectedScope.label}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -518,8 +512,8 @@ fun ReportsScreen(
         item(key = "reports_stats") {
             GlassPanel(
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -528,72 +522,101 @@ fun ReportsScreen(
                     ReportStatItem(label = "Present", count = presentCount, color = Color(0xFF4CAF50))
                     ReportStatItem(label = "Absent", count = effectiveAbsentCount, color = Color(0xFFE53935))
                     ReportStatItem(label = "Leave", count = leaveCount, color = Color(0xFFFFA000))
-                    if (isSingleDay) {
-                        ReportStatItem(label = "Attendance", count = "$singleDayRate%", color = MaterialTheme.colorScheme.primary)
-                    } else if (selectedScope == ReportScope.STUDENT || studentsForPdf.size == 1) {
-                        ReportStatItem(label = "Days Present", count = "$presentCount / $daysInRange", color = MaterialTheme.colorScheme.primary)
-                    } else {
-                        ReportStatItem(label = "Daily Avg", count = "$dailyAvgRate%", color = MaterialTheme.colorScheme.primary)
-                    }
+                    ReportStatItem(label = "Attendance", count = "$singleDayRate%", color = MaterialTheme.colorScheme.primary)
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val subtitleStats = if (isSingleDay) {
-                        "$studentCount residents · $presentCount present · $effectiveAbsentCount absent"
-                    } else if (selectedScope == ReportScope.STUDENT || studentsForPdf.size == 1) {
-                        val sName = studentsForPdf.firstOrNull()?.studentName ?: "Student"
-                        "$sName: $presentCount days present out of $daysInRange days"
-                    } else {
-                        "$totalStudentDays student-days ($daysInRange days · $effectiveAbsentCount absent)"
-                    }
+                    val subtitleStats = "$studentCount residents · $presentCount present · $effectiveAbsentCount absent · $leaveCount on leave"
                     Text(
                         text = subtitleStats,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
-                    val exportPdfInteraction = rememberMotionInteractionSource()
-                    Button(
-                        onClick = {
-                            AttendanceReportPdfGenerator().generateAndSharePdf(
-                                context = context,
-                                hostelId = hostelId,
-                                startDate = startDate,
-                                endDate = endDate,
-                                students = studentsForPdf,
-                                records = filteredRecords,
-                                wingName = wings.firstOrNull { it.wingId == selectedWingId }?.name,
-                                filterDescription = if (searchQuery.isNotBlank()) "Search: $searchQuery" else null,
-                            )
-                        },
-                        enabled = studentsForPdf.isNotEmpty(),
-                        interactionSource = exportPdfInteraction,
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.pressFeedback(exportPdfInteraction),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            contentColor = MaterialTheme.colorScheme.onSecondary,
-                        ),
-                    ) {
-                        Text("Export PDF", fontWeight = FontWeight.SemiBold)
-                    }
                 }
             }
         }
 
-        // SECTION: Select Report Date Range (Arched Liquid Glass Calendar)
-        item(key = "reports_date_range") {
-            ArchedGlassCalendar(
-                startDate = startDate,
-                endDate = endDate,
-                onDateRangeSelected = { newStart, newEnd ->
-                    startDateString = newStart.toString()
-                    endDateString = newEnd.toString()
-                },
-                maxRangeDays = 15,
-            )
+        // Dedicated Centered Export PDF Button (positioned out of the stats box)
+        item(key = "reports_export_pdf_button") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val backdrop = LocalGlobalGlassBackdrop.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val exportPdfInteraction = rememberMotionInteractionSource()
+                val exportBtnModifier = if (backdrop != null) {
+                    Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(52.dp)
+                        .liquidGlassCapsuleEffect(
+                            backdrop = backdrop,
+                            density = density,
+                            blurRadius = 14.dp,
+                            refractionHeightPx = 14f,
+                            refractionAmountPx = 20f,
+                            surfaceColor = Color(0x5500897B),
+                            specular = com.styropyr0.prismal.specular.PrismalSpecular(
+                                width = 1.dp,
+                                alpha = 0.90f,
+                                style = com.styropyr0.prismal.specular.PrismalSpecularStyle.Ambient,
+                            ),
+                            depthShadow = com.styropyr0.prismal.depth.PrismalDepthShadow(
+                                radius = 12.dp,
+                                color = Color.Black.copy(alpha = 0.35f),
+                            ),
+                        )
+                        .pressFeedback(exportPdfInteraction)
+                } else {
+                    Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(52.dp)
+                        .pressFeedback(exportPdfInteraction)
+                }
+
+                Button(
+                    onClick = {
+                        AttendanceReportPdfGenerator().generateAndSharePdf(
+                            context = context,
+                            hostelId = hostelId,
+                            startDate = today,
+                            endDate = today,
+                            students = studentsForPdf,
+                            records = filteredRecords,
+                            wingName = wings.firstOrNull { it.wingId == selectedWingId }?.name,
+                            filterDescription = if (searchQuery.isNotBlank()) "Search: $searchQuery" else null,
+                        )
+                    },
+                    enabled = studentsForPdf.isNotEmpty(),
+                    interactionSource = exportPdfInteraction,
+                    shape = RoundedCornerShape(26.dp),
+                    modifier = exportBtnModifier,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.secondary,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(text = "📄", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = "Export Daily PDF",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
         }
 
         // Attendance Register List Header
