@@ -264,25 +264,19 @@ fun HostelAttendanceApp() {
     }
 
     val globalGlassBackdrop = rememberPrismalGlassLayer()
-    val appBackgroundPainter = painterResource(R.drawable.app_bg_page2)
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Unified background using page2.jpeg with slight blur effect and Prismal glass layer capture
-        Image(
-            painter = appBackgroundPainter,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .prismalGlassLayer(globalGlassBackdrop)
-                .blur(10.dp),
-            contentScale = ContentScale.Crop,
-        )
-        // Soft ambient contrast overlay
+        // Full visibility video background without any blur effect or shade effect
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0x380D0B16)),
-        )
+                .prismalGlassLayer(globalGlassBackdrop)
+        ) {
+            BackgroundVideoPlayer(
+                videoResId = R.raw.app_bg_video,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         CompositionLocalProvider(LocalGlobalGlassBackdrop provides globalGlassBackdrop) {
             Scaffold(

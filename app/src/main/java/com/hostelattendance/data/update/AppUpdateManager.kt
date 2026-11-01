@@ -62,8 +62,8 @@ object AppUpdateManager {
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
     const val DEFAULT_RELEASE_NOTES = "• In-App APK Updater with automatic GitHub version detection\n• Uninstall-proof phone backup in hostel_attendance_local_data\n• Local SQLite download history & timestamp tracking\n• Range-based attendance calculation\n• Liquid glassmorphism UI & Apple spring animations"
-    const val DEFAULT_LATEST_VERSION_CODE = 17
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.4"
+    const val DEFAULT_LATEST_VERSION_CODE = 18
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.5"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**
