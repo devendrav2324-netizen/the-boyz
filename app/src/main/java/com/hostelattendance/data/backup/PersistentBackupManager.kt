@@ -3,13 +3,19 @@ package com.hostelattendance.data.backup
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import androidx.room.InvalidationTracker
 import com.hostelattendance.BuildConfig
 import com.hostelattendance.data.local.AttendanceRecordEntity
 import com.hostelattendance.data.local.AttendanceSessionEntity
 import com.hostelattendance.data.local.HostelDatabase
 import com.hostelattendance.data.local.StudentEntity
 import com.hostelattendance.data.local.WingEntity
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -54,6 +60,52 @@ object PersistentBackupManager {
     private const val SNAPSHOT_FILE_NAME = "hostel_attendance_snapshot.json"
     private const val DB_BACKUP_FILE_NAME = "hostel_attendance_backup.db"
     private const val METADATA_FILE_NAME = "backup_metadata.json"
+
+    private var appContext: Context? = null
+    private var appDatabase: HostelDatabase? = null
+    private val autoBackupScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var autoBackupJob: Job? = null
+
+    /**
+     * Initializes the manager and attaches an InvalidationTracker to automatically
+     * persist changes to 'hostel_attendance_local_data' whenever ANY change occurs in Room.
+     */
+    fun initialize(context: Context, database: HostelDatabase) {
+        appContext = context.applicationContext
+        appDatabase = database
+
+        try {
+            val observer = object : InvalidationTracker.Observer(
+                "students",
+                "wings",
+                "attendance_sessions",
+                "attendance_records",
+            ) {
+                override fun onInvalidated(tables: Set<String>) {
+                    Log.d(TAG, "Automatic backup triggered by table invalidation: $tables")
+                    triggerAutoBackup()
+                }
+            }
+            database.invalidationTracker.addObserver(observer)
+            Log.d(TAG, "Attached automatic Room InvalidationTracker for persistent phone backups.")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to attach InvalidationTracker observer: ${e.message}")
+        }
+    }
+
+    /**
+     * Triggers a debounced background backup to phone storage (hostel_attendance_local_data).
+     */
+    fun triggerAutoBackup() {
+        val context = appContext ?: return
+        val database = appDatabase ?: return
+
+        autoBackupJob?.cancel()
+        autoBackupJob = autoBackupScope.launch {
+            delay(1000) // Debounce rapid bursts of database modifications
+            performBackup(context, database)
+        }
+    }
 
     /**
      * Resolves the persistent backup directory on phone storage that survives app uninstallation.

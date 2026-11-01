@@ -112,6 +112,7 @@ class RoomStudentRepository(
             newStudent
         }
         FirestoreSyncService.syncStudent(hostelId, createdStudent)
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun updateStudent(
@@ -174,6 +175,7 @@ class RoomStudentRepository(
                 FirestoreSyncService.syncAttendanceRecordsBatch(updatedStudent.hostelId, updatedRecords)
             }
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun setStudentActive(studentId: String, isActive: Boolean) {
@@ -192,6 +194,7 @@ class RoomStudentRepository(
         if (student != null) {
             FirestoreSyncService.syncStudent(student.hostelId, student)
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun commitExcelImport(
@@ -290,6 +293,7 @@ class RoomStudentRepository(
         val allWings = wingDao.getAllActiveWings(hostelId)
         val allStudents = studentDao.getAllStudents(hostelId)
         FirestoreSyncService.syncWingsAndStudents(hostelId, allWings, allStudents)
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
 
         return result
     }
@@ -302,10 +306,12 @@ class RoomStudentRepository(
             FirestoreSyncService.syncWingsAndStudents(hostelId, localWings, localStudents)
         }
         // 2. Pull all wings and students from cloud into local SQLite
-        return FirestoreSyncService.restoreWingsAndStudentsFromFirestore(
+        val syncResult = FirestoreSyncService.restoreWingsAndStudentsFromFirestore(
             hostelId = hostelId,
             wingDao = wingDao,
             studentDao = studentDao,
         )
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+        return syncResult
     }
 }

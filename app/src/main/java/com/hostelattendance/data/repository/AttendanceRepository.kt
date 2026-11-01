@@ -263,6 +263,7 @@ class RoomAttendanceRepository(
                 record = updatedRecord,
             )
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun save(
@@ -299,6 +300,7 @@ class RoomAttendanceRepository(
                 records = savedSession.records,
             )
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun reopenSessionAsAdmin(sessionId: String) {
@@ -314,6 +316,7 @@ class RoomAttendanceRepository(
                 records = session.records,
             )
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun updateRecordStatusAsAdmin(
@@ -337,6 +340,7 @@ class RoomAttendanceRepository(
                 record = record,
             )
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 }
 

@@ -26,6 +26,10 @@ class HostelAttendanceApplication : Application() {
         try {
             com.styropyr0.prismal.internal.PrismalAgslAssets.bind(applicationContext.assets)
         } catch (_: Exception) {}
+
+        // Initialize automatic background phone storage persistence
+        com.hostelattendance.data.backup.PersistentBackupManager.initialize(this, database)
+
         appScope.launch {
             try {
                 // 1. Try restoring from persistent phone storage (hostel_attendance_local_data) if reinstalled
