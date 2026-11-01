@@ -77,11 +77,9 @@ object FirestoreSyncService {
                 "isActive" to wing.isActive,
                 "updatedAtMillis" to wing.updatedAtMillis,
             )
-            withTimeoutOrNull(6000L) {
-                wingsCol(db, hostelId).document(safeDocId(wing.wingId))
-                    .set(data, SetOptions.merge())
-                    .await()
-            }
+            wingsCol(db, hostelId).document(safeDocId(wing.wingId))
+                .set(data, SetOptions.merge())
+                .await()
             Log.d(TAG, "Successfully synced wing: ${wing.name}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to sync wing '${wing.name}': ${e.message}")
@@ -108,11 +106,9 @@ object FirestoreSyncService {
                 "createdAtMillis" to student.createdAtMillis,
                 "updatedAtMillis" to student.updatedAtMillis,
             )
-            withTimeoutOrNull(6000L) {
-                studentsCol(db, hostelId).document(safeDocId(student.studentId))
-                    .set(data, SetOptions.merge())
-                    .await()
-            }
+            studentsCol(db, hostelId).document(safeDocId(student.studentId))
+                .set(data, SetOptions.merge())
+                .await()
             Log.d(TAG, "Successfully synced student: ${student.rollNumber} - ${student.studentName}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to sync student '${student.rollNumber}': ${e.message}")
@@ -194,7 +190,11 @@ object FirestoreSyncService {
         session: AttendanceSessionEntity,
         records: List<AttendanceRecordEntity>,
     ) = withContext(Dispatchers.IO) {
-        val db = firestore ?: return@withContext
+        val db = firestore
+        if (db == null) {
+            Log.e(TAG, "Cannot sync attendance session: Firebase user is not signed in!")
+            return@withContext
+        }
         try {
             val sessionData = mapOf(
                 "sessionId" to session.sessionId,
@@ -207,11 +207,19 @@ object FirestoreSyncService {
                 "savedBy" to (session.savedBy ?: (FirebaseAuth.getInstance().currentUser?.uid ?: "")),
                 "version" to session.version,
             )
-            withTimeoutOrNull(6000L) {
-                sessionsCol(db, hostelId).document(safeDocId(session.sessionId))
-                    .set(sessionData, SetOptions.merge())
-                    .await()
-            }
+
+            // Ensure hostel document exists so subcollections display cleanly in console
+            try {
+                hostelDoc(db, hostelId).set(
+                    mapOf("hostelId" to hostelId, "name" to "CGITR Boys Hostel", "updatedAtMillis" to System.currentTimeMillis()),
+                    SetOptions.merge()
+                ).await()
+            } catch (_: Exception) {}
+
+            sessionsCol(db, hostelId).document(safeDocId(session.sessionId))
+                .set(sessionData, SetOptions.merge())
+                .await()
+            Log.d(TAG, "Successfully synced session header: ${session.sessionId}")
 
             for (chunk in records.chunked(300)) {
                 val batch = db.batch()
@@ -234,13 +242,11 @@ object FirestoreSyncService {
                     )
                     batch.set(ref, recordData, SetOptions.merge())
                 }
-                withTimeoutOrNull(10000L) {
-                    batch.commit().await()
-                }
+                batch.commit().await()
             }
-            Log.d(TAG, "Successfully synced session ${session.sessionId} with ${records.size} records")
+            Log.d(TAG, "Successfully synced session ${session.sessionId} with ${records.size} records to Cloud Firestore")
         } catch (e: Exception) {
-            Log.w(TAG, "Error syncing attendance session: ${e.message}")
+            Log.e(TAG, "Error syncing attendance session to Cloud Firestore: ${e.message}", e)
         }
     }
 
@@ -268,11 +274,9 @@ object FirestoreSyncService {
                 "version" to record.version,
                 "updatedAtMillis" to record.updatedAtMillis,
             )
-            withTimeoutOrNull(5000L) {
-                recordsCol(db, hostelId).document(safeDocId(record.recordId))
-                    .set(recordData, SetOptions.merge())
-                    .await()
-            }
+            recordsCol(db, hostelId).document(safeDocId(record.recordId))
+                .set(recordData, SetOptions.merge())
+                .await()
             Log.d(TAG, "Live synced attendance record: ${record.rollNumberSnapshot} -> ${record.status}")
         } catch (e: Exception) {
             Log.w(TAG, "Failed live sync for record ${record.recordId}: ${e.message}")
@@ -628,6 +632,17 @@ object FirestoreSyncService {
                         .get()
                         .await()
                         .documents
+                } catch (_: Exception) { emptyList() }
+            }
+
+            if (recordDocs.isEmpty()) {
+                recordDocs = try {
+                    recordsCol(db, hostelId)
+                        .whereEqualTo("localDate", localDate)
+                        .get()
+                        .await()
+                        .documents
+                        .filter { it.getString("wingIdSnapshot") == wingId || it.getString("wingIdSnapshot").isNullOrBlank() }
                 } catch (_: Exception) { emptyList() }
             }
 

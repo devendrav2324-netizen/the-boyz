@@ -108,26 +108,28 @@ class FirebaseAccountRepository(context: Context) {
             val effectiveCanRegister = if (isAdminRole) (canRegisterStudents != false) else false
 
             // Save or sync user profile to Firestore
-            if (snapshot == null || !snapshot.exists() || (isAdminRole && snapshot.getString("role") != "ADMIN")) {
-                try {
-                    FirebaseFirestore.getInstance()
-                        .collection("user_profiles")
-                        .document(user.uid)
-                        .set(
-                            mapOf(
-                                "hostelId" to hostelId,
-                                "role" to if (isAdminRole) "ADMIN" else "USER",
-                                "email" to (user.email ?: ""),
-                                "displayName" to (user.displayName ?: ""),
-                                "approved" to true,
-                                "isActive" to true,
-                                "allowedWingIds" to emptyList<String>(),
-                                "canRegisterStudents" to effectiveCanRegister,
-                                "createdAtMillis" to System.currentTimeMillis(),
-                            ),
-                            com.google.firebase.firestore.SetOptions.merge(),
-                        )
-                } catch (_: Exception) {}
+            try {
+                FirebaseFirestore.getInstance()
+                    .collection("user_profiles")
+                    .document(user.uid)
+                    .set(
+                        mapOf(
+                            "hostelId" to hostelId,
+                            "role" to if (isAdminRole) "ADMIN" else "USER",
+                            "email" to (user.email ?: ""),
+                            "displayName" to (user.displayName ?: ""),
+                            "approved" to true,
+                            "isActive" to true,
+                            "allowedWingIds" to emptyList<String>(),
+                            "canRegisterStudents" to effectiveCanRegister,
+                            "createdAtMillis" to System.currentTimeMillis(),
+                        ),
+                        com.google.firebase.firestore.SetOptions.merge(),
+                    )
+                    .await()
+                android.util.Log.d("FirebaseAccount", "User profile synced in Firestore for ${user.uid} with role=${if (isAdminRole) "ADMIN" else "USER"}")
+            } catch (e: Exception) {
+                android.util.Log.w("FirebaseAccount", "Failed to sync user profile: ${e.message}")
             }
 
             mutableAccess.value = AccountAccess.Approved(

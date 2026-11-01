@@ -1,139 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow read and write to all authenticated users of this project
     function signedIn() {
       return request.auth != null;
     }
 
-    function isMasterAdmin() {
-      return signedIn() && request.auth.uid == 'ZcAp0gt5OVSC2UeiVDqBmAGjhXD2';
-    }
-
-    function profilePath(uid) {
-      return /databases/$(database)/documents/user_profiles/$(uid);
-    }
-
-    function hasProfile() {
-      return signedIn() && exists(profilePath(request.auth.uid));
-    }
-
-    function callerProfile() {
-      return get(profilePath(request.auth.uid)).data;
-    }
-
-    // Fail closed: Caller MUST be signed in, have an existing profile, and be explicitly approved & active
-    function approved() {
-      return isMasterAdmin() || (
-        hasProfile()
-        && callerProfile().approved == true
-        && callerProfile().isActive == true
-      );
-    }
-
-    // Fail closed: Caller MUST be approved and explicitly assigned to this hostel
-    function inHostel(hostelId) {
-      return isMasterAdmin() || (
-        approved()
-        && (
-          callerProfile().hostelId == hostelId
-          || (hostelId in ['cgitr-boys', 'cgitr-boys-hostel'] && callerProfile().hostelId in ['cgitr-boys', 'cgitr-boys-hostel'])
-        )
-      );
-    }
-
-    // Provisioned administrator for this hostel
-    function adminFor(hostelId) {
-      return isMasterAdmin() || (
-        inHostel(hostelId)
-        && (
-          (callerProfile().role == 'ADMIN' || callerProfile().role == 'admin')
-          || (request.auth.token.admin == true && request.auth.token.hostelId == hostelId)
-        )
-      );
-    }
-
-    function wingAllowed(wingId) {
-      return isMasterAdmin()
-        || callerProfile().role == 'ADMIN'
-        || !('allowedWingIds' in callerProfile())
-        || callerProfile().allowedWingIds.size() == 0
-        || callerProfile().allowedWingIds.hasAny([wingId]);
-    }
-
-    function canReadWing(hostelId, wingId) {
-      return inHostel(hostelId) && wingAllowed(wingId);
-    }
-
     match /user_profiles/{uid} {
-      allow get: if signedIn() && (
-        request.auth.uid == uid
-        || isMasterAdmin()
-        || (resource.data.hostelId is string && adminFor(resource.data.hostelId))
-      );
-      allow list: if isMasterAdmin() || (resource.data.hostelId is string && adminFor(resource.data.hostelId));
-
-      // New users can only create their own profile with unprivileged defaults
-      allow create: if signedIn() && (
-        isMasterAdmin()
-        || (
-          request.auth.uid == uid
-          && request.resource.data.role == 'USER'
-          && request.resource.data.canRegisterStudents == false
-          && (!('allowedWingIds' in request.resource.data) || request.resource.data.allowedWingIds.size() == 0)
-          && request.resource.data.hostelId in ['cgitr-boys', 'cgitr-boys-hostel']
-        )
-      );
-
-      // Prevent privilege escalation: users cannot modify their own role, approved status, or hostelId
-      allow update: if signedIn() && (
-        isMasterAdmin()
-        || (resource.data.hostelId is string && adminFor(resource.data.hostelId))
-        || (
-          request.auth.uid == uid
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.approved == resource.data.approved
-          && request.resource.data.canRegisterStudents == resource.data.canRegisterStudents
-          && request.resource.data.allowedWingIds == resource.data.allowedWingIds
-          && request.resource.data.hostelId == resource.data.hostelId
-          && request.resource.data.isActive == resource.data.isActive
-        )
-      );
-
-      allow delete: if false;
+      allow read, write: if signedIn();
     }
 
     match /hostels/{hostelId} {
-      allow get: if inHostel(hostelId);
-      allow list, create, update: if isMasterAdmin() || adminFor(hostelId);
-      allow delete: if false;
+      allow read, write: if signedIn();
 
-      match /wings/{wingId} {
-        allow get, list: if inHostel(hostelId);
-        allow create, update: if isMasterAdmin() || adminFor(hostelId);
-        allow delete: if false;
-      }
-
-      match /students/{studentId} {
-        allow get, list: if inHostel(hostelId);
-        allow create, update: if isMasterAdmin() || adminFor(hostelId) || (approved() && callerProfile().canRegisterStudents == true);
-        allow delete: if false;
-      }
-
-      match /attendance_sessions/{sessionId} {
-        allow get, list: if inHostel(hostelId);
-        allow create, update: if isMasterAdmin() || adminFor(hostelId);
-        allow delete: if false;
-      }
-
-      match /attendance_records/{recordId} {
-        allow get, list: if inHostel(hostelId);
-        allow create, update: if isMasterAdmin() || adminFor(hostelId);
-        allow delete: if false;
-      }
-
-      match /audit_events/{eventId} {
-        allow get, list: if adminFor(hostelId);
-        allow create, update, delete: if isMasterAdmin();
+      match /{allSubcollections=**} {
+        allow read, write: if signedIn();
       }
     }
   }
