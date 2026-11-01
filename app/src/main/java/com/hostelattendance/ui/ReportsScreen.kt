@@ -309,18 +309,24 @@ fun ReportsScreen(
                         val isSelected = selectedScope == scope
                         val tabInteraction = rememberMotionInteractionSource()
                         val containerColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color(0x33FFFFFF),
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color(0x18FFFFFF),
                             animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
                             label = "scopeTabColor_${scope.name}",
                         )
+                        val borderColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.85f) else Color(0x1EFFFFFF),
+                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                            label = "scopeBorderColor_${scope.name}",
+                        )
                         val textColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
                             label = "scopeTextColor_${scope.name}",
                         )
                         Surface(
                             shape = RoundedCornerShape(20.dp),
                             color = containerColor,
+                            border = BorderStroke(1.dp, borderColor),
                             modifier = Modifier
                                 .weight(1f)
                                 .pressFeedback(tabInteraction, pressedScale = 0.94f)

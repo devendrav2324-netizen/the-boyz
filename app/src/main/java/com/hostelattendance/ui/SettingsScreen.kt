@@ -397,32 +397,54 @@ fun SettingsScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF3B82F6).copy(alpha = 0.2f))
-                                    .border(1.dp, Color(0xFF60A5FA), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                    .background(Color(0xFF3B82F6).copy(alpha = 0.22f))
+                                    .border(1.dp, Color(0xFF60A5FA).copy(alpha = 0.70f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
                             ) {
-                                Text(
-                                    text = "Updates Available to download",
-                                    color = Color(0xFF60A5FA),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(RoundedCornerShape(percent = 50))
+                                            .background(Color(0xFF60A5FA)),
+                                    )
+                                    Text(
+                                        text = "Updates Available to download",
+                                        color = Color(0xFF60A5FA),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                         }
                         is AppUpdateResult.UpToDate -> {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
-                                    .border(1.dp, Color(0xFF34D399).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                    .background(Color(0xFF10B981).copy(alpha = 0.18f))
+                                    .border(1.dp, Color(0xFF34D399).copy(alpha = 0.60f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
                             ) {
-                                Text(
-                                    text = "No updates available",
-                                    color = Color(0xFF34D399),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(RoundedCornerShape(percent = 50))
+                                            .background(Color(0xFF34D399)),
+                                    )
+                                    Text(
+                                        text = "No updates available",
+                                        color = Color(0xFF34D399),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                         }
                         else -> {}

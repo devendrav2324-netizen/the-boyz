@@ -9,7 +9,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
@@ -778,25 +782,38 @@ private fun AttendanceSummary(
                             backdrop = backdrop,
                             density = density,
                             cornerRadius = 14.dp,
-                            blurRadius = 10.dp,
+                            blurRadius = 12.dp,
                             refractionHeightPx = 10f,
                             refractionAmountPx = 14f,
-                            surfaceColor = Color(0x35231F2E),
+                            surfaceColor = Color(0x4C1C182B),
                         )
                         .padding(8.dp),
                 ) {
-                    Column {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(RoundedCornerShape(percent = 50))
+                                    .background(countColor),
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
                         AnimatedRollingCounter(
                             count = count,
                             style = MaterialTheme.typography.titleMedium,
                             color = countColor,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                     }
                 }
@@ -828,41 +845,87 @@ private fun LazyItemScope.AttendanceRecordCard(
             .liquidGlassEffect(
                 backdrop = backdrop,
                 density = density,
-                cornerRadius = 18.dp,
+                cornerRadius = 20.dp,
                 blurRadius = 14.dp,
                 refractionHeightPx = 14f,
                 refractionAmountPx = 20f,
-                surfaceColor = Color(0x351E1A29),
+                surfaceColor = Color(0x4C161324),
             )
             .padding(14.dp),
     ) {
         Column {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = record.studentNameSnapshot,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = record.roomNumberSnapshot,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Normal,
-                )
+                // Student Initials Avatar Pill
+                val initials = remember(record.studentNameSnapshot) {
+                    record.studentNameSnapshot.split(" ")
+                        .mapNotNull { it.firstOrNull()?.toString() }
+                        .take(2)
+                        .joinToString("")
+                        .uppercase()
+                        .ifBlank { "ST" }
+                }
+                val activeStatusAccent = when (record.status) {
+                    AttendanceStatus.PRESENT.name -> Color(0xFF4CAF50)
+                    AttendanceStatus.ABSENT.name -> Color(0xFFEF5350)
+                    AttendanceStatus.LEAVE.name -> Color(0xFFFFB74D)
+                    else -> Color(0x66FFFFFF)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(activeStatusAccent.copy(alpha = 0.20f))
+                        .border(1.dp, activeStatusAccent.copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = initials,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = record.studentNameSnapshot,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0x22FFFFFF),
+                            border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+                        ) {
+                            Text(
+                                text = "Rm ${record.roomNumberSnapshot}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Roll #${record.rollNumberSnapshot}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            Text(
-                text = "#${record.rollNumberSnapshot}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 markableStatuses.forEach { status ->
@@ -876,15 +939,15 @@ private fun LazyItemScope.AttendanceRecordCard(
                     }
                     val backgroundColor by animateColorAsState(
                         targetValue = if (selected) {
-                            statusAccent.copy(alpha = 0.22f)
+                            statusAccent.copy(alpha = 0.32f)
                         } else {
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+                            Color(0x14FFFFFF)
                         },
                         animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
                         label = "${status.name}StatusColor",
                     )
                     val borderColor by animateColorAsState(
-                        targetValue = if (selected) statusAccent.copy(alpha = 0.85f) else Color(0x28FFFFFF),
+                        targetValue = if (selected) statusAccent.copy(alpha = 0.90f) else Color(0x18FFFFFF),
                         animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
                         label = "${status.name}BorderColor",
                     )

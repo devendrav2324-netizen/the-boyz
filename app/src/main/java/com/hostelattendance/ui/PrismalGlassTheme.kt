@@ -53,7 +53,7 @@ fun Modifier.liquidGlassEffect(
     blurRadius: Dp = 16.dp,
     refractionHeightPx: Float = 18f,
     refractionAmountPx: Float = 26f,
-    surfaceColor: Color = Color(0x351F1C28),
+    surfaceColor: Color = Color(0x4C161324),
     specular: PrismalSpecular? = PrismalSpecular.Default,
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
         radius = 18.dp,
@@ -130,7 +130,7 @@ fun Modifier.liquidGlassCapsuleEffect(
     blurRadius: Dp = 14.dp,
     refractionHeightPx: Float = 14f,
     refractionAmountPx: Float = 20f,
-    surfaceColor: Color = Color(0x332B2836),
+    surfaceColor: Color = Color(0x4D201C2E),
     specular: PrismalSpecular? = PrismalSpecular(style = PrismalSpecularStyle.Ambient),
     depthShadow: PrismalDepthShadow? = PrismalDepthShadow(
         radius = 12.dp,

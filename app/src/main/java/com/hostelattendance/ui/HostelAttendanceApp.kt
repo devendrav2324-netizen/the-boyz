@@ -71,6 +71,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import com.styropyr0.prismal.depth.PrismalDepthShadow
 import com.styropyr0.prismal.drawPrismalGlass
@@ -501,25 +502,74 @@ private fun AppTopBar(
             .fillMaxWidth()
             .statusBarsPadding()
             .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Ethereal liquid glass branding pill with live active indicator
         Box(
             modifier = Modifier
                 .liquidGlassCapsuleEffect(
                     backdrop = backdrop,
                     density = density,
-                    surfaceColor = Color(0x352B2836),
+                    surfaceColor = Color(0x4C161324),
                 )
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = role,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(Color(0xFF00E676)),
+                )
+                Text(
+                    text = "THE BOYZ",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 1.2.sp,
+                    ),
+                    color = Color.White.copy(alpha = 0.95f),
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+        }
+
+        // Refined role badge pill
+        Box(
+            modifier = Modifier
+                .liquidGlassCapsuleEffect(
+                    backdrop = backdrop,
+                    density = density,
+                    surfaceColor = Color(0x4C161324),
+                )
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                val roleColor = if (role.equals("ADMIN", ignoreCase = true)) {
+                    Color(0xFFCE93D8)
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(roleColor),
+                )
+                Text(
+                    text = role.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = roleColor,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }
@@ -586,7 +636,7 @@ private fun SegmentedNavigationBar(
                         )
                     },
                     onDrawSurface = {
-                        drawRect(Color(0x35E0E0E6))
+                        drawRect(Color(0x40181524))
                     },
                 )
                 .padding(horizontal = 5.dp, vertical = 5.dp)
@@ -597,18 +647,18 @@ private fun SegmentedNavigationBar(
                 .shadow(
                     elevation = 14.dp,
                     shape = RoundedCornerShape(36.dp),
-                    ambientColor = Color.Black.copy(alpha = 0.09f),
-                    spotColor = Color.Black.copy(alpha = 0.14f),
+                    ambientColor = Color.Black.copy(alpha = 0.35f),
+                    spotColor = Color.Black.copy(alpha = 0.50f),
                 )
                 .clip(RoundedCornerShape(36.dp))
-                .background(Color(0xFFF1F1F1))
+                .background(Color(0xB3181524))
                 .border(
                     width = 1.dp,
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.95f),
-                            Color.White.copy(alpha = 0.35f),
-                            Color(0x0F000000),
+                            Color.White.copy(alpha = 0.40f),
+                            Color.White.copy(alpha = 0.12f),
+                            Color(0x15FFFFFF),
                         ),
                     ),
                     shape = RoundedCornerShape(36.dp),
@@ -1103,10 +1153,10 @@ internal fun GlassPanel(
                 backdrop = backdrop,
                 density = density,
                 cornerRadius = cornerRadius,
-                blurRadius = 16.dp,
+                blurRadius = 18.dp,
                 refractionHeightPx = 18f,
                 refractionAmountPx = 24f,
-                surfaceColor = Color(0x351F1C28),
+                surfaceColor = Color(0x4C161324),
             )
             .padding(contentPadding),
     ) {

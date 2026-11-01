@@ -1449,7 +1449,7 @@ private fun StudentListItem(
                 blurRadius = 12.dp,
                 refractionHeightPx = 12f,
                 refractionAmountPx = 18f,
-                surfaceColor = Color(0x351F1C2B),
+                surfaceColor = Color(0x4C161324),
             )
             .pressFeedback(itemInteraction, pressedScale = 0.98f)
             .clickable(
@@ -1462,9 +1462,33 @@ private fun StudentListItem(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val initials = remember(student.studentName) {
+                student.studentName.split(" ")
+                    .mapNotNull { it.firstOrNull()?.toString() }
+                    .take(2)
+                    .joinToString("")
+                    .uppercase()
+                    .ifBlank { "ST" }
+            }
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x24FFFFFF))
+                    .border(1.dp, Color(0x1EFFFFFF), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = initials,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = student.studentName,
