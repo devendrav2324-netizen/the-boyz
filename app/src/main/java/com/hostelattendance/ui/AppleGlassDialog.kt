@@ -56,6 +56,7 @@ fun AppleGlassDialog(
     confirmText: String = "Yes",
     dismissText: String? = "No",
     isDestructive: Boolean = false,
+    showConfetti: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -82,6 +83,13 @@ fun AppleGlassDialog(
                 ),
             contentAlignment = Alignment.Center,
         ) {
+            if (showConfetti) {
+                ConfettiBurstView(
+                    trigger = visible,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
             AnimatedVisibility(
                 visible = visible,
                 enter = scaleIn(

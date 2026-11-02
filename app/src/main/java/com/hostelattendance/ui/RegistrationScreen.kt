@@ -884,6 +884,7 @@ private fun RegistrationScreen(
             message = message,
             confirmText = "OK",
             dismissText = null,
+            showConfetti = true,
             onConfirm = { showCommitSuccessDialog = null },
             onDismiss = { showCommitSuccessDialog = null },
         )
@@ -896,6 +897,7 @@ private fun RegistrationScreen(
             message = message,
             confirmText = "OK",
             dismissText = null,
+            showConfetti = true,
             onConfirm = { showSingleRegistrationSuccessDialog = null },
             onDismiss = { showSingleRegistrationSuccessDialog = null },
         )

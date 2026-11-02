@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Performance & quick responsiveness optimizations\n• Silky-smooth 60/120fps hardware page transitions (zero GPU layer redraws)\n• Apple spring physics & instant tactile touch responsiveness\n• Optimized shape caching and reduced recomposition overhead"
-    const val DEFAULT_LATEST_VERSION_CODE = 27
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.15"
+    const val DEFAULT_RELEASE_NOTES = "• Added high-performance motion animations from compose-animations\n• Physics-based Confetti Burst simulation on attendance & registration success\n• Dynamic breathing sweep spinner & refined rolling counters\n• Snappy tactile spring response and smooth 60/120fps transitions"
+    const val DEFAULT_LATEST_VERSION_CODE = 28
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.16"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

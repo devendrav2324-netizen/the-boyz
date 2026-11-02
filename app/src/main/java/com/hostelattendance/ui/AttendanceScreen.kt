@@ -802,6 +802,7 @@ private fun AttendanceScreen(
             message = "Attendance records for ${selectedDate.format(attendanceDateFormatter)} have been verified and saved.",
             confirmText = "OK",
             dismissText = null,
+            showConfetti = true,
             onConfirm = { showAttendanceMarkedSuccessDialog = false },
             onDismiss = { showAttendanceMarkedSuccessDialog = false },
         )
