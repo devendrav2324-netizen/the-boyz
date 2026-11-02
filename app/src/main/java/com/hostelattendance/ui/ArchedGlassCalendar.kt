@@ -136,7 +136,7 @@ fun ArchedGlassCalendar(
             val startSelected = activeMode == CalendarSelectionMode.START_DATE
             val startBg by animateColorAsState(
                 targetValue = if (startSelected) Color(0xD024222E) else Color.Transparent,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f),
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.80f),
                 label = "startBg",
             )
             val startText by animateColorAsState(
@@ -190,7 +190,7 @@ fun ArchedGlassCalendar(
             val endSelected = activeMode == CalendarSelectionMode.END_DATE
             val endBg by animateColorAsState(
                 targetValue = if (endSelected) Color(0xD024222E) else Color.Transparent,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f),
+                animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.80f),
                 label = "endBg",
             )
             val endText by animateColorAsState(
@@ -292,8 +292,8 @@ fun ArchedGlassCalendar(
                 AnimatedContent(
                     targetState = monthName,
                     transitionSpec = {
-                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f)) { h -> h / 2 } + fadeIn(tween(220)))
-                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.82f)) { h -> -h / 2 } + fadeOut(tween(180)))
+                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.80f)) { h -> h / 2 } + fadeIn(tween(220)))
+                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.80f)) { h -> -h / 2 } + fadeOut(tween(180)))
                     },
                     label = "monthNameAnim",
                 ) { m ->
@@ -307,8 +307,8 @@ fun ArchedGlassCalendar(
                 AnimatedContent(
                     targetState = dayNumber,
                     transitionSpec = {
-                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.78f)) { h -> h / 2 } + fadeIn(tween(220)))
-                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.78f)) { h -> -h / 2 } + fadeOut(tween(180)))
+                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.78f)) { h -> h / 2 } + fadeIn(tween(220)))
+                            .togetherWith(slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.78f)) { h -> -h / 2 } + fadeOut(tween(180)))
                     },
                     label = "dayNumberAnim",
                 ) { d ->
@@ -426,11 +426,11 @@ fun ArchedGlassCalendar(
                 targetState = centerDate,
                 transitionSpec = {
                     if (targetState.isAfter(initialState)) {
-                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (w * 0.40f).toInt() } + fadeIn(tween(220)))
-                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (-w * 0.40f).toInt() } + fadeOut(tween(180)))
+                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.80f, stiffness = 420f)) { w -> (w * 0.40f).toInt() } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.80f, stiffness = 420f)) { w -> (-w * 0.40f).toInt() } + fadeOut(tween(180)))
                     } else {
-                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (-w * 0.40f).toInt() } + fadeIn(tween(220)))
-                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.82f, stiffness = 160f)) { w -> (w * 0.40f).toInt() } + fadeOut(tween(180)))
+                        (slideInHorizontally(animationSpec = spring(dampingRatio = 0.80f, stiffness = 420f)) { w -> (-w * 0.40f).toInt() } + fadeIn(tween(220)))
+                            .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.80f, stiffness = 420f)) { w -> (w * 0.40f).toInt() } + fadeOut(tween(180)))
                     }
                 },
                 label = "weekSlideAnim",
@@ -458,7 +458,7 @@ fun ArchedGlassCalendar(
                         // Smoothly animated properties for selected glowing badge & tactile spring
                         val selectedScale by animateFloatAsState(
                             targetValue = if (isSelected) 1.10f else 1f,
-                            animationSpec = spring(dampingRatio = 0.70f, stiffness = 220f),
+                            animationSpec = spring(dampingRatio = 0.76f, stiffness = 450f),
                             label = "selectedScale_${date}",
                         )
                         val glowElevation by animateDpAsState(

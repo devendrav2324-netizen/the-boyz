@@ -328,12 +328,10 @@ fun HostelAttendanceApp() {
                         val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                        ) + fadeIn(animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing))
                     } else {
-                        fadeIn(tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = 160, easing = FastOutSlowInEasing))
                     }
                 },
                 exitTransition = {
@@ -347,12 +345,10 @@ fun HostelAttendanceApp() {
                         val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing)) +
-                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                        ) + fadeOut(animationSpec = tween(durationMillis = 140, easing = FastOutLinearInEasing))
                     } else {
-                        fadeOut(tween(durationMillis = 160, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = 140, easing = FastOutSlowInEasing))
                     }
                 },
                 popEnterTransition = {
@@ -366,12 +362,10 @@ fun HostelAttendanceApp() {
                         val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                        ) + fadeIn(animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing))
                     } else {
-                        fadeIn(tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = 160, easing = FastOutSlowInEasing))
                     }
                 },
                 popExitTransition = {
@@ -385,12 +379,10 @@ fun HostelAttendanceApp() {
                         val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 160, easing = FastOutLinearInEasing)) +
-                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing))
+                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                        ) + fadeOut(animationSpec = tween(durationMillis = 140, easing = FastOutLinearInEasing))
                     } else {
-                        fadeOut(tween(durationMillis = 160, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 0.985f, animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = 140, easing = FastOutSlowInEasing))
                     }
                 },
             ) {
@@ -677,22 +669,13 @@ private fun SegmentedNavigationBar(
                 val indicatorOffset by animateDpAsState(
                     targetValue = targetOffset,
                     animationSpec = spring(
-                        dampingRatio = 0.78f,
-                        stiffness = 580f,
+                        dampingRatio = 0.80f,
+                        stiffness = 680f,
                     ),
                     label = "segmentedPillOffset",
                 )
 
-                // Depth & shadow elevates slightly during movement
-                val isGliding = kotlin.math.abs((indicatorOffset - targetOffset).value) > 1.2f
-                val pillElevation by animateDpAsState(
-                    targetValue = if (isGliding) 14.dp else 8.dp,
-                    animationSpec = spring(
-                        dampingRatio = 0.78f,
-                        stiffness = 580f,
-                    ),
-                    label = "pillElevation",
-                )
+                val pillElevation = 10.dp
 
                 // Floating Black Selected Pill Indicator with Liquid Glass
                 val pillModifier = if (backdrop != null) {

@@ -14,8 +14,8 @@ android {
         applicationId = "com.hostelattendance"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.13.14"
+        versionCode = 27
+        versionName = "1.13.15"
     }
 
     buildFeatures {

@@ -47,22 +47,22 @@ import androidx.compose.ui.unit.dp
  * High-performance fluid spring animation specs inspired by skydoves/compose-animations
  */
 object MotionSpecs {
-    // Apple-style gentle fluid glide (Apple Style Animation Pack)
+    // Apple-style fluid glide (fast and responsive)
     val AppleGlideSpring = spring<Dp>(
-        dampingRatio = 0.86f,
-        stiffness = 115f,
+        dampingRatio = 0.82f,
+        stiffness = 550f,
     )
 
-    // Apple-style button tactile bounce (wan apple middle bounce button.ffx)
+    // Apple-style button tactile bounce
     val AppleButtonSpring = spring<Float>(
-        dampingRatio = 0.72f,
-        stiffness = 240f,
+        dampingRatio = 0.76f,
+        stiffness = 450f,
     )
 
-    // Apple-style pop-up overshoot (wan Pop Up Expression.ffx)
+    // Apple-style pop-up overshoot
     val ApplePopSpring = spring<Float>(
-        dampingRatio = 0.74f,
-        stiffness = 260f,
+        dampingRatio = 0.76f,
+        stiffness = 420f,
     )
 
     val BouncySpring = spring<Float>(
@@ -76,18 +76,18 @@ object MotionSpecs {
     )
 
     val PillSpring = spring<Dp>(
-        dampingRatio = 0.86f,
-        stiffness = 115f,
+        dampingRatio = 0.80f,
+        stiffness = 650f,
     )
 
     val FastTween = tween<Float>(
-        durationMillis = 300,
+        durationMillis = 200,
         easing = FastOutSlowInEasing,
     )
 
     val CardExpand = spring<androidx.compose.ui.unit.IntSize>(
-        dampingRatio = 0.84f,
-        stiffness = Spring.StiffnessMediumLow,
+        dampingRatio = 0.82f,
+        stiffness = Spring.StiffnessMedium,
     )
 }
 
@@ -110,8 +110,8 @@ internal fun Modifier.pressFeedback(
         animationSpec = if (isPressed) {
             spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh)
         } else {
-            // Apple-style tactile click bounce (wan apple middle bounce button.ffx)
-            spring(dampingRatio = 0.72f, stiffness = 340f)
+            // Apple-style tactile click bounce - instant, crisp recovery
+            spring(dampingRatio = 0.78f, stiffness = 520f)
         },
         label = "pressScaleFeedback",
     )

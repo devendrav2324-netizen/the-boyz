@@ -38,6 +38,17 @@ import com.styropyr0.prismal.specular.PrismalSpecularStyle
  */
 val LocalGlobalGlassBackdrop = staticCompositionLocalOf<PrismalGlassLayer?> { null }
 
+private val roundedRectShapeCache = java.util.concurrent.ConcurrentHashMap<Dp, PrismalRoundedRectangle>()
+private val roundedCornerShapeCache = java.util.concurrent.ConcurrentHashMap<Dp, RoundedCornerShape>()
+private val defaultCapsuleShape = PrismalCapsule()
+private val defaultCapsuleFallbackShape = RoundedCornerShape(percent = 50)
+
+fun getCachedPrismalRoundedRectangle(radius: Dp): PrismalRoundedRectangle =
+    roundedRectShapeCache.computeIfAbsent(radius) { PrismalRoundedRectangle(it) }
+
+fun getCachedRoundedCornerShape(radius: Dp): RoundedCornerShape =
+    roundedCornerShapeCache.computeIfAbsent(radius) { RoundedCornerShape(it) }
+
 /**
  * Applies the Prismal Liquid Glass effect to any component:
  * - AGSL Edge Lens Refraction & Dispersion
@@ -73,8 +84,8 @@ fun Modifier.liquidGlassEffect(
         ),
     ),
 ): Modifier {
-    val shape = PrismalRoundedRectangle(cornerRadius)
-    val fallbackShape = RoundedCornerShape(cornerRadius)
+    val shape = getCachedPrismalRoundedRectangle(cornerRadius)
+    val fallbackShape = getCachedRoundedCornerShape(cornerRadius)
 
     return if (backdrop != null) {
         this
@@ -173,8 +184,8 @@ fun Modifier.liquidGlassCapsuleEffect(
         ),
     ),
 ): Modifier {
-    val shape = PrismalCapsule()
-    val fallbackShape = RoundedCornerShape(percent = 50)
+    val shape = defaultCapsuleShape
+    val fallbackShape = defaultCapsuleFallbackShape
 
     return if (backdrop != null) {
         this

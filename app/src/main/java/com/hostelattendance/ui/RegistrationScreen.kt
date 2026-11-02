@@ -352,8 +352,8 @@ private fun RegistrationScreen(
                         val indicatorOffset by animateDpAsState(
                             targetValue = targetOffset,
                             animationSpec = spring(
-                                dampingRatio = 0.86f,
-                                stiffness = 115f, // Apple-style slow fluid glide
+                                dampingRatio = 0.80f,
+                                stiffness = 650f, // Apple-style snappy glide
                             ),
                             label = "regTabIndicatorOffset",
                         )
@@ -441,7 +441,7 @@ private fun RegistrationScreen(
                                 val tabInteraction = rememberMotionInteractionSource()
                                 val textColor by animateColorAsState(
                                     targetValue = if (isSelected) Color.White else Color(0xFF777777),
-                                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
                                     label = "regTabTextColor_${tab.name}",
                                 )
                                 Box(
