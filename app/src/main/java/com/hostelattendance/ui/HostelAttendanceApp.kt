@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -127,6 +128,9 @@ private enum class DestinationIcon {
     REGISTRATION,
     SETTINGS,
 }
+
+private val AppleEaseInOut = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1.0f)
+private const val APPLE_TRANSITION_DURATION = 600
 
 private val allNavRoutes = listOf("attendance", "reports", "registration", "settings")
 
@@ -325,13 +329,22 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
+                        val initialOffset = { fullWidth: Int ->
+                            val displacement = (fullWidth * 0.11f).toInt().coerceIn(90, 180)
+                            if (movingRight) displacement else -displacement
+                        }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing))
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + fadeIn(
+                            initialAlpha = 0f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + scaleIn(
+                            initialScale = 0.985f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        )
                     } else {
-                        fadeIn(tween(durationMillis = 160, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut))
                     }
                 },
                 exitTransition = {
@@ -342,13 +355,22 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
+                        val targetOffset = { fullWidth: Int ->
+                            val displacement = (fullWidth * 0.11f).toInt().coerceIn(90, 180)
+                            if (movingRight) -displacement else displacement
+                        }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 140, easing = FastOutLinearInEasing))
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + fadeOut(
+                            targetAlpha = 0.10f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + scaleOut(
+                            targetScale = 0.985f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        )
                     } else {
-                        fadeOut(tween(durationMillis = 140, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut))
                     }
                 },
                 popEnterTransition = {
@@ -359,13 +381,22 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val initialOffset = if (movingRight) { w: Int -> (w * 0.05f).toInt() } else { w: Int -> -(w * 0.05f).toInt() }
+                        val initialOffset = { fullWidth: Int ->
+                            val displacement = (fullWidth * 0.11f).toInt().coerceIn(90, 180)
+                            if (movingRight) displacement else -displacement
+                        }
                         slideInHorizontally(
                             initialOffsetX = initialOffset,
-                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-                        ) + fadeIn(animationSpec = tween(durationMillis = 160, easing = LinearOutSlowInEasing))
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + fadeIn(
+                            initialAlpha = 0f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + scaleIn(
+                            initialScale = 0.985f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        )
                     } else {
-                        fadeIn(tween(durationMillis = 160, easing = FastOutSlowInEasing))
+                        fadeIn(tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut))
                     }
                 },
                 popExitTransition = {
@@ -376,13 +407,22 @@ fun HostelAttendanceApp() {
 
                     if (initialIndex >= 0 && targetIndex >= 0 && initialIndex != targetIndex) {
                         val movingRight = targetIndex > initialIndex
-                        val targetOffset = if (movingRight) { w: Int -> -(w * 0.04f).toInt() } else { w: Int -> (w * 0.04f).toInt() }
+                        val targetOffset = { fullWidth: Int ->
+                            val displacement = (fullWidth * 0.11f).toInt().coerceIn(90, 180)
+                            if (movingRight) -displacement else displacement
+                        }
                         slideOutHorizontally(
                             targetOffsetX = targetOffset,
-                            animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
-                        ) + fadeOut(animationSpec = tween(durationMillis = 140, easing = FastOutLinearInEasing))
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + fadeOut(
+                            targetAlpha = 0.10f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        ) + scaleOut(
+                            targetScale = 0.985f,
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
+                        )
                     } else {
-                        fadeOut(tween(durationMillis = 140, easing = FastOutSlowInEasing))
+                        fadeOut(tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut))
                     }
                 },
             ) {
@@ -668,9 +708,9 @@ private fun SegmentedNavigationBar(
                 // Fast, responsive & buttery-smooth Apple spring glide
                 val indicatorOffset by animateDpAsState(
                     targetValue = targetOffset,
-                    animationSpec = spring(
-                        dampingRatio = 0.80f,
-                        stiffness = 680f,
+                    animationSpec = tween(
+                        durationMillis = APPLE_TRANSITION_DURATION,
+                        easing = AppleEaseInOut,
                     ),
                     label = "segmentedPillOffset",
                 )
@@ -766,17 +806,14 @@ private fun SegmentedNavigationBar(
                         // Snappy, organic scale feedback
                         val iconScale by animateFloatAsState(
                             targetValue = if (isSelected) 1.08f else 1f,
-                            animationSpec = spring(
-                                dampingRatio = 0.75f,
-                                stiffness = 500f,
-                            ),
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
                             label = "${destination.route}IconScale",
                         )
 
                         // Synchronized text color transition from #777777 to White
                         val contentColor by animateColorAsState(
                             targetValue = if (isSelected) Color.White else Color(0xFF777777),
-                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                            animationSpec = tween(durationMillis = APPLE_TRANSITION_DURATION, easing = AppleEaseInOut),
                             label = "${destination.route}ContentColor",
                         )
 

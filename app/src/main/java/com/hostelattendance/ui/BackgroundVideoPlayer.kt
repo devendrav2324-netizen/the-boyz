@@ -1,5 +1,6 @@
 package com.hostelattendance.ui
 
+import android.content.Context
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
@@ -12,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,10 +25,132 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 private const val TAG = "BackgroundVideoPlayer"
 
 /**
- * High-performance, hardware-accelerated video background player using [TextureView] and [MediaPlayer].
+ * Singleton manager for the application background video player.
+ * Keeps the [MediaPlayer] continuously prepared and playing in memory across all
+ * navigation and tab transitions, completely eliminating reloading, buffering lag,
+ * and audio/video hitching.
+ */
+object AppBackgroundVideoManager {
+    private var mediaPlayer: MediaPlayer? = null
+    private var isPrepared = false
+    private var activeSurface: Surface? = null
+    var videoWidth: Int = 0
+        private set
+    var videoHeight: Int = 0
+        private set
+
+    @Synchronized
+    fun ensureInitialized(context: Context, @RawRes videoResId: Int) {
+        if (mediaPlayer != null) return
+
+        try {
+            val player = MediaPlayer().apply {
+                val afd = context.resources.openRawResourceFd(videoResId)
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                afd.close()
+
+                isLooping = true
+                setVolume(0f, 0f) // Silent loop
+
+                setOnVideoSizeChangedListener { _, w, h ->
+                    if (w > 0 && h > 0) {
+                        this@AppBackgroundVideoManager.videoWidth = w
+                        this@AppBackgroundVideoManager.videoHeight = h
+                    }
+                }
+
+                setOnPreparedListener { mp ->
+                    isPrepared = true
+                    this@AppBackgroundVideoManager.videoWidth = mp.videoWidth
+                    this@AppBackgroundVideoManager.videoHeight = mp.videoHeight
+                    activeSurface?.let { surf ->
+                        if (surf.isValid) {
+                            try {
+                                mp.setSurface(surf)
+                                mp.start()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Error starting on prepared: ${e.message}")
+                            }
+                        }
+                    }
+                }
+
+                prepareAsync()
+            }
+            mediaPlayer = player
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing background video player: ${e.message}", e)
+        }
+    }
+
+    @Synchronized
+    fun attachSurface(surface: Surface) {
+        activeSurface = surface
+        val player = mediaPlayer ?: return
+        if (isPrepared && surface.isValid) {
+            try {
+                player.setSurface(surface)
+                if (!player.isPlaying) {
+                    player.start()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error attaching surface to player: ${e.message}")
+            }
+        }
+    }
+
+    @Synchronized
+    fun detachSurface() {
+        try {
+            mediaPlayer?.setSurface(null)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error detaching surface: ${e.message}")
+        }
+        activeSurface = null
+    }
+
+    @Synchronized
+    fun pause() {
+        try {
+            if (mediaPlayer?.isPlaying == true) {
+                mediaPlayer?.pause()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error pausing video: ${e.message}")
+        }
+    }
+
+    @Synchronized
+    fun resume() {
+        try {
+            if (isPrepared && activeSurface?.isValid == true && mediaPlayer?.isPlaying == false) {
+                mediaPlayer?.start()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error resuming video: ${e.message}")
+        }
+    }
+
+    @Synchronized
+    fun release() {
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.reset()
+            mediaPlayer?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing video: ${e.message}")
+        }
+        mediaPlayer = null
+        isPrepared = false
+        activeSurface = null
+    }
+}
+
+/**
+ * High-performance, hardware-accelerated video background player using [TextureView].
  * - Full visibility without blur, shade, or dimming overlay.
  * - Hardware center-crop aspect ratio scaling (no black bars or distortion).
- * - Silent looping (muted volume).
+ * - Silent continuous looping via [AppBackgroundVideoManager] with zero reloads on tab switches.
  * - Automatic pause/resume bound to the Activity/Lifecycle.
  */
 @Composable
@@ -39,29 +161,23 @@ fun BackgroundVideoPlayer(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
-    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
-    var currentSurface by remember { mutableStateOf<Surface?>(null) }
-
-    var videoWidth by remember { mutableIntStateOf(0) }
-    var videoHeight by remember { mutableIntStateOf(0) }
     var viewWidth by remember { mutableIntStateOf(0) }
     var viewHeight by remember { mutableIntStateOf(0) }
 
     fun adjustVideoScale(view: TextureView, vWidth: Int, vHeight: Int, tWidth: Int, tHeight: Int) {
-        if (vWidth <= 0 || vHeight <= 0 || tWidth <= 0 || tHeight <= 0) return
+        val vw = if (vWidth > 0) vWidth else AppBackgroundVideoManager.videoWidth
+        val vh = if (vHeight > 0) vHeight else AppBackgroundVideoManager.videoHeight
+        if (vw <= 0 || vh <= 0 || tWidth <= 0 || tHeight <= 0) return
 
         val viewRatio = tWidth.toFloat() / tHeight.toFloat()
-        val videoRatio = vWidth.toFloat() / vHeight.toFloat()
+        val videoRatio = vw.toFloat() / vh.toFloat()
 
         var scaleX = 1f
         var scaleY = 1f
 
         if (videoRatio > viewRatio) {
-            // Video is wider than view -> scale width to crop sides
             scaleX = videoRatio / viewRatio
         } else {
-            // Video is taller than view -> scale height to crop top/bottom
             scaleY = viewRatio / videoRatio
         }
 
@@ -70,26 +186,18 @@ fun BackgroundVideoPlayer(
         view.setTransform(matrix)
     }
 
+    // Ensure player is initialized once
+    DisposableEffect(videoResId) {
+        AppBackgroundVideoManager.ensureInitialized(context.applicationContext, videoResId)
+        onDispose {}
+    }
+
     // Lifecycle observer: pause on ON_PAUSE, resume on ON_RESUME
-    DisposableEffect(lifecycleOwner, mediaPlayer) {
+    DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> {
-                    try {
-                        if (mediaPlayer?.isPlaying == true) {
-                            mediaPlayer?.pause()
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error pausing background video: ${e.message}")
-                    }
-                }
-                Lifecycle.Event.ON_RESUME -> {
-                    try {
-                        mediaPlayer?.start()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error resuming background video: ${e.message}")
-                    }
-                }
+                Lifecycle.Event.ON_PAUSE -> AppBackgroundVideoManager.pause()
+                Lifecycle.Event.ON_RESUME -> AppBackgroundVideoManager.resume()
                 else -> {}
             }
         }
@@ -102,109 +210,40 @@ fun BackgroundVideoPlayer(
         }
     }
 
-    // Clean up MediaPlayer and Surface on disposal
-    DisposableEffect(Unit) {
-        onDispose {
-            try {
-                mediaPlayer?.stop()
-                mediaPlayer?.reset()
-                mediaPlayer?.release()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error releasing MediaPlayer: ${e.message}")
-            }
-            mediaPlayer = null
-
-            try {
-                currentSurface?.release()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error releasing Surface: ${e.message}")
-            }
-            currentSurface = null
-        }
-    }
-
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { ctx ->
             val tv = TextureView(ctx)
-            textureViewRef = tv
 
             tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
                     viewWidth = width
                     viewHeight = height
                     val surface = Surface(st)
-                    currentSurface = surface
-
-                    if (mediaPlayer == null) {
-                        try {
-                            val player = MediaPlayer().apply {
-                                val afd = ctx.resources.openRawResourceFd(videoResId)
-                                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                                afd.close()
-
-                                setSurface(surface)
-                                isLooping = true
-                                setVolume(0f, 0f)
-
-                                setOnVideoSizeChangedListener { _, w, h ->
-                                    if (w > 0 && h > 0) {
-                                        videoWidth = w
-                                        videoHeight = h
-                                        adjustVideoScale(tv, w, h, viewWidth, viewHeight)
-                                    }
-                                }
-
-                                setOnPreparedListener { mp ->
-                                    videoWidth = mp.videoWidth
-                                    videoHeight = mp.videoHeight
-                                    adjustVideoScale(tv, mp.videoWidth, mp.videoHeight, viewWidth, viewHeight)
-                                    mp.start()
-                                }
-
-                                prepareAsync()
-                            }
-                            mediaPlayer = player
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to initialize MediaPlayer for background video: ${e.message}", e)
-                        }
-                    } else {
-                        mediaPlayer?.setSurface(surface)
-                        adjustVideoScale(tv, videoWidth, videoHeight, width, height)
-                        try {
-                            mediaPlayer?.start()
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Error restarting playback on surface available: ${e.message}")
-                        }
-                    }
+                    AppBackgroundVideoManager.attachSurface(surface)
+                    adjustVideoScale(tv, AppBackgroundVideoManager.videoWidth, AppBackgroundVideoManager.videoHeight, width, height)
                 }
 
                 override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
                     viewWidth = width
                     viewHeight = height
-                    adjustVideoScale(tv, videoWidth, videoHeight, width, height)
+                    adjustVideoScale(tv, AppBackgroundVideoManager.videoWidth, AppBackgroundVideoManager.videoHeight, width, height)
                 }
 
                 override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                    try {
-                        mediaPlayer?.setSurface(null)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error detaching surface: ${e.message}")
-                    }
-                    currentSurface?.release()
-                    currentSurface = null
+                    AppBackgroundVideoManager.detachSurface()
                     return true
                 }
 
                 override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
-                    // New frame rendered
+                    // Frame rendered
                 }
             }
 
             tv
         },
         update = { tv ->
-            adjustVideoScale(tv, videoWidth, videoHeight, viewWidth, viewHeight)
+            adjustVideoScale(tv, AppBackgroundVideoManager.videoWidth, AppBackgroundVideoManager.videoHeight, viewWidth, viewHeight)
         }
     )
 }

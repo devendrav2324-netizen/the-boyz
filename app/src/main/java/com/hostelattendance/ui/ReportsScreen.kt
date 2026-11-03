@@ -201,13 +201,17 @@ fun ReportsScreen(
     val rawRecords by repository.observeRecordsForDateRange(hostelId, today.toString(), today.toString())
         .collectAsState(initial = emptyList())
 
+    var hasSyncedTodayAttendance by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(hostelId, today) {
-        com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
-            hostelId = hostelId,
-            startDate = today.toString(),
-            endDate = today.toString(),
-            sessionDao = application.database.attendanceSessionDao(),
-        )
+        if (!hasSyncedTodayAttendance) {
+            com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+                hostelId = hostelId,
+                startDate = today.toString(),
+                endDate = today.toString(),
+                sessionDao = application.database.attendanceSessionDao(),
+            )
+            hasSyncedTodayAttendance = true
+        }
     }
 
     val filteredRecords = remember(rawRecords, selectedScope, selectedWingId, searchQuery) {
