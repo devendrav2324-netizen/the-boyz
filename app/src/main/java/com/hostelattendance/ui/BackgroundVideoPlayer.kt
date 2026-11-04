@@ -163,11 +163,23 @@ fun BackgroundVideoPlayer(
 
     var viewWidth by remember { mutableIntStateOf(0) }
     var viewHeight by remember { mutableIntStateOf(0) }
+    var lastAppliedVw by remember { mutableIntStateOf(0) }
+    var lastAppliedVh by remember { mutableIntStateOf(0) }
+    var lastAppliedTw by remember { mutableIntStateOf(0) }
+    var lastAppliedTh by remember { mutableIntStateOf(0) }
 
     fun adjustVideoScale(view: TextureView, vWidth: Int, vHeight: Int, tWidth: Int, tHeight: Int) {
         val vw = if (vWidth > 0) vWidth else AppBackgroundVideoManager.videoWidth
         val vh = if (vHeight > 0) vHeight else AppBackgroundVideoManager.videoHeight
         if (vw <= 0 || vh <= 0 || tWidth <= 0 || tHeight <= 0) return
+
+        if (vw == lastAppliedVw && vh == lastAppliedVh && tWidth == lastAppliedTw && tHeight == lastAppliedTh) {
+            return
+        }
+        lastAppliedVw = vw
+        lastAppliedVh = vh
+        lastAppliedTw = tWidth
+        lastAppliedTh = tHeight
 
         val viewRatio = tWidth.toFloat() / tHeight.toFloat()
         val videoRatio = vw.toFloat() / vh.toFloat()

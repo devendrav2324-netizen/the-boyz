@@ -1295,13 +1295,8 @@ private fun AttendanceReportRow(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .liquidGlassEffect(
-                backdrop = backdrop,
-                density = density,
+            .optimizedGlassCard(
                 cornerRadius = 18.dp,
-                blurRadius = 12.dp,
-                refractionHeightPx = 12f,
-                refractionAmountPx = 18f,
                 surfaceColor = Color(0x351F1C2B),
             )
             .pressFeedback(rowInteraction, pressedScale = 0.98f)

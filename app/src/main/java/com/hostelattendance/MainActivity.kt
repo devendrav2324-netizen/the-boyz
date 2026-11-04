@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             HostelAttendanceTheme {
-                HostelAttendanceApp()
+                com.hostelattendance.ui.AppRootScaffold()
             }
         }
     }

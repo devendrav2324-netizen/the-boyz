@@ -984,13 +984,8 @@ private fun LazyItemScope.AttendanceRecordCard(
                 fadeOutSpec = tween(durationMillis = 90, easing = FastOutLinearInEasing),
                 placementSpec = spring(dampingRatio = 0.78f, stiffness = 550f)
             )
-            .liquidGlassEffect(
-                backdrop = backdrop,
-                density = density,
+            .optimizedGlassCard(
                 cornerRadius = 20.dp,
-                blurRadius = 18.dp,
-                refractionHeightPx = 18f,
-                refractionAmountPx = 28f,
                 surfaceColor = Color(0x4C161324),
             )
             .padding(14.dp),

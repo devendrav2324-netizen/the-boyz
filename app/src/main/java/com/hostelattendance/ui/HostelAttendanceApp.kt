@@ -268,23 +268,7 @@ fun HostelAttendanceApp() {
         optimisticIndex = destinationIndex
     }
 
-    val globalGlassBackdrop = rememberPrismalGlassLayer()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Full visibility video background without any blur effect or shade effect
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .prismalGlassLayer(globalGlassBackdrop)
-        ) {
-            BackgroundVideoPlayer(
-                videoResId = R.raw.app_bg_video,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-
-        CompositionLocalProvider(LocalGlobalGlassBackdrop provides globalGlassBackdrop) {
-            Scaffold(
+    Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = Color.Transparent,
             topBar = {
@@ -501,7 +485,6 @@ fun HostelAttendanceApp() {
                 }
             }
         }
-    }
 
         if (showExitDialog) {
             AppleGlassDialog(
@@ -518,6 +501,34 @@ fun HostelAttendanceApp() {
                     showExitDialog = false
                 },
             )
+        }
+}
+
+/**
+ * Root application scaffold.
+ * Mounts the continuous background video player permanently at the window root,
+ * completely independent of navigation, routes, and tabs.
+ * Switching tabs or pages never touches, recomposes, or interrupts this layer.
+ */
+@Composable
+fun AppRootScaffold() {
+    val globalGlassBackdrop = rememberPrismalGlassLayer()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Continuous, persistent video background - never reloads on tab changes
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .prismalGlassLayer(globalGlassBackdrop)
+        ) {
+            BackgroundVideoPlayer(
+                videoResId = R.raw.app_bg_video,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        CompositionLocalProvider(LocalGlobalGlassBackdrop provides globalGlassBackdrop) {
+            HostelAttendanceApp()
         }
     }
 }
