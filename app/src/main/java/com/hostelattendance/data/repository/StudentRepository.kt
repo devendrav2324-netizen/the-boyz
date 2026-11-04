@@ -87,7 +87,8 @@ class RoomStudentRepository(
         )
 
         val createdStudent = database.withTransaction {
-            require(wingDao.findActiveWing(hostelId, student.wingId) != null) {
+            val wing = wingDao.findActiveWing(hostelId, student.wingId)
+            require(wing != null) {
                 "The selected wing is not available."
             }
             require(studentDao.findByNormalizedRollNumber(hostelId, student.normalizedRollNumber) == null) {
@@ -109,6 +110,34 @@ class RoomStudentRepository(
                 updatedAtMillis = now,
             )
             studentDao.insert(newStudent)
+
+            // Immediately attach student to today's active attendance session (DRAFT) if one exists,
+            // so his name immediately appears in the attendance page to mark and in reports
+            val today = com.hostelattendance.domain.AttendanceRules.today()
+            val todayStr = today.toString()
+            val sessionDao = database.attendanceSessionDao()
+            val existingSession = sessionDao.findSession(hostelId, todayStr, student.wingId)
+            if (existingSession != null && existingSession.state == com.hostelattendance.domain.AttendanceSessionState.DRAFT.name) {
+                val recordId = com.hostelattendance.domain.AttendanceRules.recordId(hostelId, newStudent.studentId, today)
+                val newRecord = com.hostelattendance.data.local.AttendanceRecordEntity(
+                    recordId = recordId,
+                    hostelId = hostelId,
+                    studentId = newStudent.studentId,
+                    rollNumberSnapshot = newStudent.rollNumber,
+                    studentNameSnapshot = newStudent.studentName,
+                    localDate = todayStr,
+                    status = com.hostelattendance.domain.AttendanceStatus.NOT_MARKED.name,
+                    wingIdSnapshot = newStudent.currentWingId,
+                    wingNameSnapshot = wing.name,
+                    roomNumberSnapshot = newStudent.currentRoomNumber,
+                    sessionId = existingSession.sessionId,
+                    version = 0,
+                    createdAtMillis = now,
+                    updatedAtMillis = now,
+                )
+                sessionDao.insertRecords(listOf(newRecord))
+            }
+
             newStudent
         }
         FirestoreSyncService.syncStudent(hostelId, createdStudent)
@@ -229,9 +258,10 @@ class RoomStudentRepository(
                     continue
                 }
 
+                val importedStudentId = UUID.randomUUID().toString()
                 studentDao.insert(
                     StudentEntity(
-                        studentId = UUID.randomUUID().toString(),
+                        studentId = importedStudentId,
                         hostelId = hostelId,
                         rollNumber = row.rollNumber,
                         normalizedRollNumber = normalizedRoll,
@@ -245,6 +275,33 @@ class RoomStudentRepository(
                         updatedAtMillis = now,
                     ),
                 )
+
+                // Attach imported student to today's draft attendance session if one exists
+                val today = com.hostelattendance.domain.AttendanceRules.today()
+                val todayStr = today.toString()
+                val sessionDao = database.attendanceSessionDao()
+                val existingSession = sessionDao.findSession(hostelId, todayStr, effectiveWingId)
+                if (existingSession != null && existingSession.state == com.hostelattendance.domain.AttendanceSessionState.DRAFT.name) {
+                    val recordId = com.hostelattendance.domain.AttendanceRules.recordId(hostelId, importedStudentId, today)
+                    val newRecord = com.hostelattendance.data.local.AttendanceRecordEntity(
+                        recordId = recordId,
+                        hostelId = hostelId,
+                        studentId = importedStudentId,
+                        rollNumberSnapshot = row.rollNumber,
+                        studentNameSnapshot = row.studentName,
+                        localDate = todayStr,
+                        status = com.hostelattendance.domain.AttendanceStatus.NOT_MARKED.name,
+                        wingIdSnapshot = effectiveWingId,
+                        wingNameSnapshot = wing.name,
+                        roomNumberSnapshot = row.roomNumber,
+                        sessionId = existingSession.sessionId,
+                        version = 0,
+                        createdAtMillis = now,
+                        updatedAtMillis = now,
+                    )
+                    sessionDao.insertRecords(listOf(newRecord))
+                }
+
                 inserted++
             }
 

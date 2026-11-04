@@ -769,6 +769,7 @@ private fun AttendanceScreen(
     if (showSaveConfirmation && session != null) {
         SaveAttendanceDialog(
             session = session!!,
+            records = records,
             totals = totals,
             selectedDate = selectedDate,
             onDismiss = { if (!isSaving) showSaveConfirmation = false },
@@ -1140,13 +1141,16 @@ private fun LazyItemScope.AttendanceRecordCard(
 @Composable
 private fun SaveAttendanceDialog(
     session: AttendanceSessionWithRecords,
+    records: List<AttendanceRecordEntity>,
     totals: AttendanceTotals,
     selectedDate: LocalDate,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     val today = remember { AttendanceRules.today() }
-    val incomplete = session.records.filter { it.status == AttendanceStatus.NOT_MARKED.name }
+    val incomplete = remember(records) {
+        records.filter { it.status == AttendanceStatus.NOT_MARKED.name }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Confirm attendance") },

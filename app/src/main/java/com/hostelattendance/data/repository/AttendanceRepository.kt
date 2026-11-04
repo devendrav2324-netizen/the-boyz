@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
 interface AttendanceRepository {
@@ -128,24 +129,60 @@ class RoomAttendanceRepository(
     ): AttendanceSessionWithRecords? {
         val parsedDate = LocalDate.parse(localDate)
 
-        // 1. Try to pull latest session from Firestore to stay in real-time sync with cloud
-        val remoteSession = com.hostelattendance.data.sync.FirestoreSyncService.pullAttendanceSession(
-            hostelId = hostelId,
-            localDate = localDate,
-            wingId = wingId,
-            sessionDao = sessionDao,
-        )
-        if (remoteSession != null && remoteSession.records.isNotEmpty()) {
-            return remoteSession
-        }
-
-        // 2. Check local SQLite (offline support)
+        // 1. Check local SQLite FIRST (offline-first architecture for instant response)
         val localExisting = sessionDao.findSession(hostelId, localDate, wingId)
         if (localExisting != null) {
-            val sessionWithRecords = sessionDao.findSessionWithRecords(localExisting.sessionId)
+            var sessionWithRecords = sessionDao.findSessionWithRecords(localExisting.sessionId)
             if (sessionWithRecords != null && sessionWithRecords.records.isNotEmpty()) {
+                // If this is a DRAFT session, auto-reconcile with any newly registered active students
+                if (localExisting.state == AttendanceSessionState.DRAFT.name) {
+                    val activeStudents = studentDao.findActiveStudentsWithWingName(hostelId, wingId)
+                    val existingStudentIds = sessionWithRecords.records.map { it.studentId }.toSet()
+                    val missingStudents = activeStudents.filter { it.student.studentId !in existingStudentIds }
+                    if (missingStudents.isNotEmpty()) {
+                        val now = System.currentTimeMillis()
+                        val newRecords = missingStudents.map { joined ->
+                            val student = joined.student
+                            AttendanceRecordEntity(
+                                recordId = AttendanceRules.recordId(hostelId, student.studentId, parsedDate),
+                                hostelId = hostelId,
+                                studentId = student.studentId,
+                                rollNumberSnapshot = student.rollNumber,
+                                studentNameSnapshot = student.studentName,
+                                localDate = localDate,
+                                status = AttendanceStatus.NOT_MARKED.name,
+                                wingIdSnapshot = student.currentWingId,
+                                wingNameSnapshot = joined.currentWingName,
+                                roomNumberSnapshot = student.currentRoomNumber,
+                                sessionId = localExisting.sessionId,
+                                version = 0,
+                                createdAtMillis = now,
+                                updatedAtMillis = now,
+                            )
+                        }
+                        sessionDao.insertRecords(newRecords)
+                        sessionWithRecords = sessionDao.findSessionWithRecords(localExisting.sessionId)
+                    }
+                }
                 return sessionWithRecords
             }
+        }
+
+        // 2. Not in local SQLite. Try pulling from Firestore with a short timeout so offline never hangs!
+        val remoteSession = withTimeoutOrNull(2500L) {
+            try {
+                com.hostelattendance.data.sync.FirestoreSyncService.pullAttendanceSession(
+                    hostelId = hostelId,
+                    localDate = localDate,
+                    wingId = wingId,
+                    sessionDao = sessionDao,
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (remoteSession != null && remoteSession.records.isNotEmpty()) {
+            return remoteSession
         }
 
         // 3. Not in Firestore or local SQLite.
@@ -233,11 +270,17 @@ class RoomAttendanceRepository(
         }
 
         if (createdSession != null) {
-            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
-                hostelId = hostelId,
-                session = createdSession.session,
-                records = createdSession.records,
-            )
+            repositoryScope.launch {
+                try {
+                    com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
+                        hostelId = hostelId,
+                        session = createdSession.session,
+                        records = createdSession.records,
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("AttendanceRepo", "Async firestore sync for new draft failed: ${e.message}")
+                }
+            }
         }
         return createdSession
     }
@@ -295,8 +338,10 @@ class RoomAttendanceRepository(
             if (session.session.state == AttendanceSessionState.SAVED.name) {
                 return@withTransaction
             }
+            val activeStudents = studentDao.findActiveStudentsWithWingName(session.session.hostelId, session.session.wingId)
+            val activeIds = activeStudents.map { it.student.studentId }.toSet()
             val notMarkedCount = session.records.count {
-                it.status == AttendanceStatus.NOT_MARKED.name
+                it.studentId in activeIds && it.status == AttendanceStatus.NOT_MARKED.name
             }
             AttendanceRules.requireSaveAllowed(
                 state = session.session.state,
@@ -312,13 +357,20 @@ class RoomAttendanceRepository(
         }
         val savedSession = sessionDao.findSessionWithRecords(sessionId)
         if (savedSession != null) {
-            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
-                hostelId = savedSession.session.hostelId,
-                session = savedSession.session,
-                records = savedSession.records,
-            )
+            // Asynchronously sync saved session to Cloud Firestore without blocking offline completion
+            repositoryScope.launch {
+                try {
+                    com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
+                        hostelId = savedSession.session.hostelId,
+                        session = savedSession.session,
+                        records = savedSession.records,
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("AttendanceRepo", "Async firestore sync on save failed: ${e.message}")
+                }
+                com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+            }
         }
-        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun reopenSessionAsAdmin(sessionId: String) {
@@ -328,13 +380,19 @@ class RoomAttendanceRepository(
         }
         val session = sessionDao.findSessionWithRecords(sessionId)
         if (session != null) {
-            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
-                hostelId = session.session.hostelId,
-                session = session.session,
-                records = session.records,
-            )
+            repositoryScope.launch {
+                try {
+                    com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
+                        hostelId = session.session.hostelId,
+                        session = session.session,
+                        records = session.records,
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("AttendanceRepo", "Async firestore sync on reopen failed: ${e.message}")
+                }
+                com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+            }
         }
-        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
     override suspend fun updateRecordStatusAsAdmin(
