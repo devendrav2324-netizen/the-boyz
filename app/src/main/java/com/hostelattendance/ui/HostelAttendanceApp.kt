@@ -3,6 +3,7 @@ package com.hostelattendance.ui
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import com.hostelattendance.HostelAttendanceApplication
+import com.hostelattendance.data.local.UserSessionManager
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -154,9 +155,22 @@ fun HostelAttendanceApp() {
     val allowedWings = approvedAccount?.allowedWingIds ?: emptySet()
     val isAdmin = approvedAccount?.role == "ADMIN"
     val canRegister = isAdmin && (approvedAccount?.canRegisterStudents ?: false)
-    val userDisplayName = approvedAccount?.displayName ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
-    val userStudentId = approvedAccount?.studentId
-    val userRollNumber = approvedAccount?.rollNumber
+    val uid = approvedAccount?.uid ?: ""
+    var sessionHostellerName by remember(uid) {
+        mutableStateOf(UserSessionManager.getHostellerName(context, uid) ?: approvedAccount?.displayName)
+    }
+    var sessionRoomNumber by remember(uid) {
+        mutableStateOf(UserSessionManager.getRoomNumber(context, uid))
+    }
+    var sessionStudentId by remember(uid) {
+        mutableStateOf(UserSessionManager.getStudentId(context, uid) ?: approvedAccount?.studentId)
+    }
+    var sessionRollNumber by remember(uid) {
+        mutableStateOf(UserSessionManager.getRollNumber(context, uid) ?: approvedAccount?.rollNumber)
+    }
+    var hasEnteredHosteller by remember(uid) {
+        mutableStateOf(UserSessionManager.hasSelectedHosteller(context, uid))
+    }
 
     val destinations = remember(isAdmin) {
         if (isAdmin) {
@@ -240,10 +254,16 @@ fun HostelAttendanceApp() {
         }
     }
 
-    LaunchedEffect(accountAccess) {
+    LaunchedEffect(accountAccess, hasEnteredHosteller) {
         if (accountAccess is AccountAccess.Approved && currentDestination?.route == "login") {
-            navController.navigate("attendance") {
-                popUpTo("login") { inclusive = true }
+            if (isAdmin || hasEnteredHosteller) {
+                navController.navigate("attendance") {
+                    popUpTo("login") { inclusive = true }
+                }
+            } else {
+                navController.navigate("hosteller_entry") {
+                    popUpTo("login") { inclusive = true }
+                }
             }
         }
     }
@@ -423,8 +443,32 @@ fun HostelAttendanceApp() {
                         onRetry = { scope.launch { accountRepository.refreshAccess() } },
                         onSignOut = { scope.launch { accountRepository.signOut() } },
                         onEnterApp = {
+                            if (isAdmin || hasEnteredHosteller) {
+                                navController.navigate("attendance") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate("hosteller_entry") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        },
+                    )
+                }
+                composable("hosteller_entry") {
+                    UserHostellerEntryScreen(
+                        hostelId = activeHostelId,
+                        uid = uid,
+                        initialName = sessionHostellerName.orEmpty(),
+                        initialRoom = sessionRoomNumber.orEmpty(),
+                        onEnter = { name, room, sId, roll ->
+                            sessionHostellerName = name
+                            sessionRoomNumber = room
+                            sessionStudentId = sId
+                            sessionRollNumber = roll
+                            hasEnteredHosteller = true
                             navController.navigate("attendance") {
-                                popUpTo("login") { inclusive = true }
+                                popUpTo("hosteller_entry") { inclusive = true }
                             }
                         },
                     )
@@ -434,9 +478,9 @@ fun HostelAttendanceApp() {
                         hostelId = activeHostelId,
                         allowedWingIds = allowedWings,
                         isAdmin = isAdmin,
-                        userDisplayName = userDisplayName,
-                        userStudentId = userStudentId,
-                        userRollNumber = userRollNumber,
+                        userDisplayName = sessionHostellerName,
+                        userStudentId = sessionStudentId,
+                        userRollNumber = sessionRollNumber,
                         onNavigateToRegistration = {
                             navController.navigate("registration") {
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -446,15 +490,18 @@ fun HostelAttendanceApp() {
                                 restoreState = true
                             }
                         },
+                        onSwitchHosteller = {
+                            navController.navigate("hosteller_entry")
+                        },
                     )
                 }
                 composable("reports") {
                     ReportsScreen(
                         hostelId = activeHostelId,
                         isAdmin = isAdmin,
-                        userDisplayName = userDisplayName,
-                        userStudentId = userStudentId,
-                        userRollNumber = userRollNumber,
+                        userDisplayName = sessionHostellerName,
+                        userStudentId = sessionStudentId,
+                        userRollNumber = sessionRollNumber,
                     )
                 }
                 composable("registration") {
@@ -530,11 +577,9 @@ fun AppRootScaffold() {
                 .fillMaxSize()
                 .prismalGlassLayer(globalGlassBackdrop)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.app_bg_image),
-                contentDescription = null,
+            BackgroundVideoPlayer(
+                videoResId = R.raw.app_bg_video,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
             )
         }
 

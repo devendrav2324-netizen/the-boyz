@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Dedicated User Session interface with personalized attendance status\n• Strict privacy architecture restricting user sessions from roster data\n• Personal Monthly Reports with Total Present, Absent, Leave & Percentage stats\n• Attendance Dispute Request submission for wrong attendance"
-    const val DEFAULT_LATEST_VERSION_CODE = 32
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.20"
+    const val DEFAULT_RELEASE_NOTES = "• Restored continuous background video player\n• Hosteller Sign In page with real-time related name tray bar\n• Individual attendance and reports driven by selected hosteller name\n• Profile switching option in user session"
+    const val DEFAULT_LATEST_VERSION_CODE = 33
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.21"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

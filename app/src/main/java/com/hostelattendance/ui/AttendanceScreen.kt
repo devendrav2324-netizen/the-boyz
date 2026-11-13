@@ -120,6 +120,7 @@ fun AttendanceScreen(
     userStudentId: String? = null,
     userRollNumber: String? = null,
     onNavigateToRegistration: () -> Unit = {},
+    onSwitchHosteller: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
@@ -131,6 +132,7 @@ fun AttendanceScreen(
         userStudentId = userStudentId,
         userRollNumber = userRollNumber,
         onNavigateToRegistration = onNavigateToRegistration,
+        onSwitchHosteller = onSwitchHosteller,
         repository = application.attendanceRepository,
     )
 }
@@ -144,6 +146,7 @@ private fun AttendanceScreen(
     userStudentId: String?,
     userRollNumber: String?,
     onNavigateToRegistration: () -> Unit,
+    onSwitchHosteller: (() -> Unit)?,
     repository: AttendanceRepository,
 ) {
     if (!isAdmin) {
@@ -152,6 +155,7 @@ private fun AttendanceScreen(
             userDisplayName = userDisplayName,
             userStudentId = userStudentId,
             userRollNumber = userRollNumber,
+            onSwitchHosteller = onSwitchHosteller,
             repository = repository,
         )
         return
@@ -1293,6 +1297,7 @@ private fun UserIndividualAttendanceView(
     userDisplayName: String?,
     userStudentId: String?,
     userRollNumber: String?,
+    onSwitchHosteller: (() -> Unit)? = null,
     repository: AttendanceRepository,
 ) {
     val context = LocalContext.current
@@ -1353,7 +1358,7 @@ private fun UserIndividualAttendanceView(
 
     val currentStatus = userRecord?.status ?: AttendanceStatus.NOT_MARKED.name
     val greeting = remember { UserSessionPrivacyRules.getGreetingForTime(LocalTime.now()) }
-    val studentName = matchedStudent?.studentName ?: userDisplayName ?: "Devendra"
+    val studentName = userDisplayName?.takeIf { it.isNotBlank() } ?: matchedStudent?.studentName ?: "Devendra"
     val displayFirstName = remember(studentName) { UserSessionPrivacyRules.extractFirstName(studentName) }
     val formattedDate = remember(selectedDate) { UserSessionPrivacyRules.formatDisplayDate(selectedDate) }
 
@@ -1380,15 +1385,39 @@ private fun UserIndividualAttendanceView(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Bold Title: First Name (matches reference: "Devendra")
-        Text(
-            text = displayFirstName,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            ),
-        )
+        // Bold Title: First Name (matches reference: "Devendra") with Switch Profile option
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = displayFirstName,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                ),
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (onSwitchHosteller != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x356366F1))
+                        .border(BorderStroke(1.dp, Color(0x60818CF8)), RoundedCornerShape(12.dp))
+                        .clickable { onSwitchHosteller() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Switch Profile",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFC084FC),
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
