@@ -441,7 +441,17 @@ fun HostelAttendanceApp() {
                             scope.launch { accountRepository.signInWithGoogle(context) }
                         },
                         onRetry = { scope.launch { accountRepository.refreshAccess() } },
-                        onSignOut = { scope.launch { accountRepository.signOut() } },
+                        onSignOut = {
+                            scope.launch {
+                                accountRepository.signOut()
+                                UserSessionManager.clearActiveSession(context, uid)
+                                hasEnteredHosteller = false
+                                sessionHostellerName = null
+                                sessionRoomNumber = null
+                                sessionStudentId = null
+                                sessionRollNumber = null
+                            }
+                        },
                         onEnterApp = {
                             if (isAdmin || hasEnteredHosteller) {
                                 navController.navigate("attendance") {
@@ -456,11 +466,27 @@ fun HostelAttendanceApp() {
                     )
                 }
                 composable("hosteller_entry") {
+                    val currentEmail = approvedAccount?.email ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email
                     UserHostellerEntryScreen(
                         hostelId = activeHostelId,
                         uid = uid,
+                        userEmail = currentEmail,
                         initialName = sessionHostellerName.orEmpty(),
                         initialRoom = sessionRoomNumber.orEmpty(),
+                        onSignOut = {
+                            scope.launch {
+                                accountRepository.signOut()
+                                UserSessionManager.clearActiveSession(context, uid)
+                                hasEnteredHosteller = false
+                                sessionHostellerName = null
+                                sessionRoomNumber = null
+                                sessionStudentId = null
+                                sessionRollNumber = null
+                                navController.navigate("login") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        },
                         onEnter = { name, room, sId, roll ->
                             sessionHostellerName = name
                             sessionRoomNumber = room
@@ -490,9 +516,6 @@ fun HostelAttendanceApp() {
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        },
-                        onSwitchHosteller = {
-                            navController.navigate("hosteller_entry")
                         },
                     )
                 }
@@ -534,6 +557,12 @@ fun HostelAttendanceApp() {
                         onSignOut = {
                             scope.launch {
                                 accountRepository.signOut()
+                                UserSessionManager.clearActiveSession(context, uid)
+                                hasEnteredHosteller = false
+                                sessionHostellerName = null
+                                sessionRoomNumber = null
+                                sessionStudentId = null
+                                sessionRollNumber = null
                                 navController.navigate("login") {
                                     popUpTo(0) { inclusive = true }
                                 }

@@ -122,7 +122,6 @@ fun AttendanceScreen(
     userRollNumber: String? = null,
     userRoomNumber: String? = null,
     onNavigateToRegistration: () -> Unit = {},
-    onSwitchHosteller: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
@@ -135,7 +134,6 @@ fun AttendanceScreen(
         userRollNumber = userRollNumber,
         userRoomNumber = userRoomNumber,
         onNavigateToRegistration = onNavigateToRegistration,
-        onSwitchHosteller = onSwitchHosteller,
         repository = application.attendanceRepository,
     )
 }
@@ -150,7 +148,6 @@ private fun AttendanceScreen(
     userRollNumber: String?,
     userRoomNumber: String?,
     onNavigateToRegistration: () -> Unit,
-    onSwitchHosteller: (() -> Unit)?,
     repository: AttendanceRepository,
 ) {
     if (!isAdmin) {
@@ -160,7 +157,6 @@ private fun AttendanceScreen(
             userStudentId = userStudentId,
             userRollNumber = userRollNumber,
             userRoomNumber = userRoomNumber,
-            onSwitchHosteller = onSwitchHosteller,
             repository = repository,
         )
         return
@@ -1303,7 +1299,6 @@ private fun UserIndividualAttendanceView(
     userStudentId: String?,
     userRollNumber: String?,
     userRoomNumber: String?,
-    onSwitchHosteller: (() -> Unit)? = null,
     repository: AttendanceRepository,
 ) {
     val context = LocalContext.current
@@ -1394,39 +1389,15 @@ private fun UserIndividualAttendanceView(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Bold Title: First Name (matches reference: "Devendra") with Switch Profile option
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = displayFirstName,
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                ),
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (onSwitchHosteller != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x356366F1))
-                        .border(BorderStroke(1.dp, Color(0x60818CF8)), RoundedCornerShape(12.dp))
-                        .clickable { onSwitchHosteller() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Switch Profile",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFC084FC),
-                    )
-                }
-            }
-        }
+        // Bold Title: First Name (matches reference: "Devendra")
+        Text(
+            text = displayFirstName,
+            style = MaterialTheme.typography.displaySmall.copy(
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            ),
+        )
 
         Spacer(modifier = Modifier.height(10.dp))
 

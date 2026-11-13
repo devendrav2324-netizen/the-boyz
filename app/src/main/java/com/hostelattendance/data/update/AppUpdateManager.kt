@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Fixed user session report identity resolution\n• Strict deterministic student matching by unique ID, roll, and room number\n• Direct single-student binding in PDF generation preventing cross-student contamination\n• Full-month coverage in personal PDF reports without 15-day truncation"
-    const val DEFAULT_LATEST_VERSION_CODE = 34
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.22"
+    const val DEFAULT_RELEASE_NOTES = "• Removed switch profile option from user session attendance tab\n• Enforced Gmail ID and Hosteller credential binding\n• Blocked mismatched logins with 'Do not Enter other\'s Credential' alert\n• Cloud and local verification preventing credential tampering"
+    const val DEFAULT_LATEST_VERSION_CODE = 35
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.23"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

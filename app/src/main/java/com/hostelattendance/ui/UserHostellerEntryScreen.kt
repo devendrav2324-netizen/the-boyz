@@ -24,13 +24,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -66,8 +73,10 @@ import java.time.LocalTime
 fun UserHostellerEntryScreen(
     hostelId: String,
     uid: String,
+    userEmail: String? = null,
     initialName: String = "",
     initialRoom: String = "",
+    onSignOut: (() -> Unit)? = null,
     onEnter: (hostellerName: String, roomNumber: String, studentId: String?, rollNumber: String?) -> Unit,
 ) {
     val context = LocalContext.current
@@ -75,10 +84,25 @@ fun UserHostellerEntryScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
-    var nameInput by rememberSaveable { mutableStateOf(initialName) }
-    var roomInput by rememberSaveable { mutableStateOf(initialRoom) }
+    val localBoundName = remember(userEmail) {
+        if (!userEmail.isNullOrBlank()) UserSessionManager.getBoundHostellerName(context, userEmail) else null
+    }
+    val localBoundRoom = remember(userEmail) {
+        if (!userEmail.isNullOrBlank()) UserSessionManager.getBoundRoomNumber(context, userEmail) else null
+    }
+
+    var nameInput by rememberSaveable(userEmail) {
+        mutableStateOf(if (initialName.isNotBlank()) initialName else (localBoundName ?: ""))
+    }
+    var roomInput by rememberSaveable(userEmail) {
+        mutableStateOf(if (initialRoom.isNotBlank()) initialRoom else (localBoundRoom ?: ""))
+    }
     var selectedStudent by remember { mutableStateOf<StudentEntity?>(null) }
     var isTrayDismissed by remember { mutableStateOf(false) }
+
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isVerifying by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
 
     val allStudents by application.studentRepository.observeAllStudents(hostelId).collectAsState(initial = emptyList())
 
@@ -93,6 +117,17 @@ fun UserHostellerEntryScreen(
                         application.database.studentDao(),
                     )
                 } catch (_: Exception) {}
+            }
+        }
+    }
+
+    // Auto-fetch cloud bindings for this email if not populated
+    LaunchedEffect(userEmail) {
+        if (!userEmail.isNullOrBlank()) {
+            val cloudBinding = UserSessionManager.fetchBindingFromCloud(context, userEmail, uid)
+            if (cloudBinding != null) {
+                if (nameInput.isBlank()) nameInput = cloudBinding.first
+                if (roomInput.isBlank()) roomInput = cloudBinding.second
             }
         }
     }
@@ -155,10 +190,82 @@ fun UserHostellerEntryScreen(
                         ),
                     )
                     Text(
-                        text = "Enter your name and room number to view your individual attendance records.",
+                        text = "Enter your registered hosteller name and room number.",
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.72f),
                     )
+
+                    // Signed-in email indicator badge
+                    if (!userEmail.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0x256366F1))
+                                .border(BorderStroke(1.dp, Color(0x40818CF8)), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFFC084FC),
+                                modifier = Modifier.size(13.dp),
+                            )
+                            Text(
+                                text = "Account: $userEmail",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFDDD6FE),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Error Message Banner (Prominently displayed when "Do not Enter other's Credential" is triggered)
+            if (errorMessage != null) {
+                item(key = "error_banner") {
+                    AnimatedVisibility(
+                        visible = errorMessage != null,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0x3DF43F5E),
+                            border = BorderStroke(1.5.dp, Color(0xFFFB7185)),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFDA4AF),
+                                    modifier = Modifier.size(24.dp),
+                                )
+                                Column {
+                                    Text(
+                                        text = "Verification Blocked",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFFFFF1F2),
+                                    )
+                                    Text(
+                                        text = errorMessage ?: "",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFFDA4AF),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -209,6 +316,7 @@ fun UserHostellerEntryScreen(
                                 value = nameInput,
                                 onValueChange = {
                                     nameInput = it
+                                    errorMessage = null
                                     isTrayDismissed = false
                                 },
                                 placeholder = {
@@ -266,6 +374,7 @@ fun UserHostellerEntryScreen(
                                                         roomInput = student.currentRoomNumber
                                                         selectedStudent = student
                                                         isTrayDismissed = true
+                                                        errorMessage = null
                                                         focusManager.clearFocus()
                                                     }
                                                     .padding(horizontal = 14.dp, vertical = 9.dp),
@@ -324,7 +433,10 @@ fun UserHostellerEntryScreen(
 
                             OutlinedTextField(
                                 value = roomInput,
-                                onValueChange = { roomInput = it },
+                                onValueChange = {
+                                    roomInput = it
+                                    errorMessage = null
+                                },
                                 placeholder = {
                                     Text(
                                         "e.g. 102",
@@ -352,42 +464,59 @@ fun UserHostellerEntryScreen(
                 }
             }
 
-            // Bottom "Enter" Button
+            // Bottom "Enter" Button & Validation Action
             item(key = "enter_button") {
-                val canEnter = nameInput.isNotBlank() && roomInput.isNotBlank()
+                val canEnter = nameInput.isNotBlank() && roomInput.isNotBlank() && !isVerifying
 
                 Button(
                     onClick = {
                         if (!canEnter) return@Button
                         focusManager.clearFocus()
+                        errorMessage = null
+                        isVerifying = true
 
                         scope.launch {
-                            var roster = allStudents
-                            if (roster.isEmpty()) {
-                                roster = application.database.studentDao().getAllStudents(hostelId)
+                            try {
+                                var roster = allStudents
+                                if (roster.isEmpty()) {
+                                    roster = application.database.studentDao().getAllStudents(hostelId)
+                                }
+
+                                val resolvedStudent = selectedStudent ?: StudentIdentityResolver.resolveStudent(
+                                    roster = roster,
+                                    targetStudentId = null,
+                                    targetRollNumber = null,
+                                    targetName = nameInput.trim(),
+                                    targetRoomNumber = roomInput.trim(),
+                                )
+
+                                val sId = resolvedStudent?.studentId
+                                val roll = resolvedStudent?.rollNumber
+
+                                // Validate against email-credential binding
+                                val (isValid, errorMsg) = UserSessionManager.validateAndBind(
+                                    context = context,
+                                    email = userEmail.orEmpty(),
+                                    uid = uid,
+                                    enteredName = nameInput.trim(),
+                                    enteredRoom = roomInput.trim(),
+                                    studentId = sId,
+                                    rollNumber = roll,
+                                )
+
+                                if (!isValid) {
+                                    errorMessage = errorMsg ?: UserSessionManager.ERROR_OTHER_CREDENTIALS
+                                    showErrorDialog = true
+                                    isVerifying = false
+                                    return@launch
+                                }
+
+                                isVerifying = false
+                                onEnter(nameInput.trim(), roomInput.trim(), sId, roll)
+                            } catch (_: Exception) {
+                                isVerifying = false
+                                errorMessage = "Verification failed. Please check connection and try again."
                             }
-
-                            val resolvedStudent = selectedStudent ?: StudentIdentityResolver.resolveStudent(
-                                roster = roster,
-                                targetStudentId = null,
-                                targetRollNumber = null,
-                                targetName = nameInput.trim(),
-                                targetRoomNumber = roomInput.trim(),
-                            )
-
-                            val sId = resolvedStudent?.studentId
-                            val roll = resolvedStudent?.rollNumber
-
-                            UserSessionManager.saveSelectedHosteller(
-                                context = context,
-                                uid = uid,
-                                hostellerName = nameInput.trim(),
-                                roomNumber = roomInput.trim(),
-                                studentId = sId,
-                                rollNumber = roll,
-                            )
-
-                            onEnter(nameInput.trim(), roomInput.trim(), sId, roll)
                         }
                     },
                     shape = RoundedCornerShape(18.dp),
@@ -404,13 +533,65 @@ fun UserHostellerEntryScreen(
                         .fillMaxWidth()
                         .height(54.dp),
                 ) {
-                    Text(
-                        text = "Enter  ➔",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    if (isVerifying) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.5.dp,
+                        )
+                    } else {
+                        Text(
+                            text = "Enter  ➔",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+
+            // Optional Switch Account / Sign Out button
+            if (onSignOut != null) {
+                item(key = "switch_account") {
+                    TextButton(
+                        onClick = onSignOut,
+                        modifier = Modifier.padding(top = 4.dp),
+                    ) {
+                        Text(
+                            text = "Sign in with a different Google account",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 13.sp,
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // Access Denied Alert Dialog: stops the user in the login page
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = {
+                Text(
+                    text = "Access Blocked",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            },
+            text = {
+                Text(
+                    text = errorMessage ?: UserSessionManager.ERROR_OTHER_CREDENTIALS,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 15.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog = false }) {
+                    Text("OK", color = Color(0xFFC084FC), fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color(0xFF1E1B4B),
+            shape = RoundedCornerShape(20.dp),
+        )
     }
 }
