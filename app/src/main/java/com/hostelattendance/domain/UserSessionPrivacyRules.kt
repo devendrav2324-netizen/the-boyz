@@ -119,33 +119,36 @@ object UserSessionPrivacyRules {
     /**
      * Filters a list of attendance records strictly to the records belonging to the user.
      * Prevents any other student's data from being accessed or returned.
+     * Enforces strict deterministic matching (exact ID, exact roll, or exact name).
+     * No loose substring matches that would pool multiple students' records together.
      */
     fun <T> filterRecordsForUser(
         records: List<T>,
         userStudentId: String?,
         userStudentName: String?,
+        userRollNumber: String? = null,
         getStudentId: (T) -> String,
         getStudentName: (T) -> String,
+        getRollNumber: ((T) -> String)? = null,
     ): List<T> {
         val normId = userStudentId?.trim().orEmpty()
         val normName = userStudentName?.trim().orEmpty()
+        val normRoll = userRollNumber?.trim().orEmpty()
 
-        if (normId.isBlank() && normName.isBlank()) {
+        if (normId.isBlank() && normName.isBlank() && normRoll.isBlank()) {
             return emptyList()
         }
 
         return records.filter { record ->
             val recordId = getStudentId(record).trim()
             val recordName = getStudentName(record).trim()
+            val recordRoll = getRollNumber?.invoke(record)?.trim().orEmpty()
 
             val matchesId = normId.isNotBlank() && recordId.equals(normId, ignoreCase = true)
-            val matchesName = normName.isNotBlank() && (
-                recordName.equals(normName, ignoreCase = true) ||
-                recordName.contains(normName, ignoreCase = true) ||
-                normName.contains(recordName, ignoreCase = true)
-            )
+            val matchesRoll = normRoll.isNotBlank() && recordRoll.isNotBlank() && recordRoll.equals(normRoll, ignoreCase = true)
+            val matchesName = normName.isNotBlank() && recordName.equals(normName, ignoreCase = true)
 
-            matchesId || matchesName
+            matchesId || matchesRoll || matchesName
         }
     }
 }

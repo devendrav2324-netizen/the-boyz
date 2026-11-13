@@ -107,6 +107,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import com.hostelattendance.domain.UserSessionPrivacyRules
+import com.hostelattendance.domain.StudentIdentityResolver
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -127,6 +128,7 @@ fun ReportsScreen(
     userDisplayName: String? = null,
     userStudentId: String? = null,
     userRollNumber: String? = null,
+    userRoomNumber: String? = null,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
@@ -136,6 +138,7 @@ fun ReportsScreen(
         userDisplayName = userDisplayName,
         userStudentId = userStudentId,
         userRollNumber = userRollNumber,
+        userRoomNumber = userRoomNumber,
         repository = application.attendanceRepository,
     )
 }
@@ -147,6 +150,7 @@ fun ReportsScreen(
     userDisplayName: String? = null,
     userStudentId: String? = null,
     userRollNumber: String? = null,
+    userRoomNumber: String? = null,
     repository: AttendanceRepository,
 ) {
     if (!isAdmin) {
@@ -155,6 +159,7 @@ fun ReportsScreen(
             userDisplayName = userDisplayName,
             userStudentId = userStudentId,
             userRollNumber = userRollNumber,
+            userRoomNumber = userRoomNumber,
             repository = repository,
         )
         return
@@ -1402,6 +1407,7 @@ private fun UserIndividualReportsView(
     userDisplayName: String?,
     userStudentId: String?,
     userRollNumber: String?,
+    userRoomNumber: String?,
     repository: AttendanceRepository,
 ) {
     val context = LocalContext.current
@@ -1417,18 +1423,16 @@ private fun UserIndividualReportsView(
 
     var isExporting by remember { mutableStateOf(false) }
 
-    // Resolve student from repository
+    // Resolve student strictly and deterministically using StudentIdentityResolver
     val allStudents by application.studentRepository.observeAllStudents(hostelId).collectAsState(initial = emptyList())
-    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName) {
-        allStudents.firstOrNull { student ->
-            (userStudentId?.isNotBlank() == true && student.studentId.equals(userStudentId, ignoreCase = true)) ||
-            (userRollNumber?.isNotBlank() == true && student.rollNumber.equals(userRollNumber, ignoreCase = true)) ||
-            (userDisplayName?.isNotBlank() == true && (
-                student.studentName.equals(userDisplayName.trim(), ignoreCase = true) ||
-                student.studentName.contains(userDisplayName.trim(), ignoreCase = true) ||
-                userDisplayName.trim().contains(student.studentName, ignoreCase = true)
-            ))
-        }
+    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName, userRoomNumber) {
+        StudentIdentityResolver.resolveStudent(
+            roster = allStudents,
+            targetStudentId = userStudentId,
+            targetRollNumber = userRollNumber,
+            targetName = userDisplayName,
+            targetRoomNumber = userRoomNumber,
+        )
     }
 
     // Restore attendance for this month from Firestore
@@ -1447,16 +1451,23 @@ private fun UserIndividualReportsView(
     val allMonthRecords by repository.observeRecordsForDateRange(hostelId, startDate.toString(), endDate.toString())
         .collectAsState(initial = emptyList())
 
-    // Strictly filter to ONLY this student's records (zero leakage of any other student)
-    val userMonthRecords = remember(allMonthRecords, matchedStudent, userDisplayName, userStudentId) {
+        // Strictly filter to ONLY this student's records (zero leakage of any other student)
+    val studentDisplayName = matchedStudent?.studentName ?: userDisplayName?.takeIf { it.isNotBlank() } ?: "Devendra"
+    val studentRoll = matchedStudent?.rollNumber ?: userRollNumber ?: ""
+    val studentRoom = matchedStudent?.currentRoomNumber ?: userRoomNumber ?: ""
+
+    val userMonthRecords = remember(allMonthRecords, matchedStudent, userDisplayName, userStudentId, userRollNumber) {
         val sId = matchedStudent?.studentId ?: userStudentId
-        val sName = matchedStudent?.studentName ?: userDisplayName
+        val sName = studentDisplayName
+        val sRoll = studentRoll.ifBlank { null }
         UserSessionPrivacyRules.filterRecordsForUser(
             records = allMonthRecords,
             userStudentId = sId,
             userStudentName = sName,
+            userRollNumber = sRoll,
             getStudentId = { it.studentId },
             getStudentName = { it.studentNameSnapshot },
+            getRollNumber = { it.rollNumberSnapshot },
         ).sortedBy { it.localDate }
     }
 
@@ -1468,10 +1479,6 @@ private fun UserIndividualReportsView(
         val m = yearMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }
         "$m ${yearMonth.year}"
     }
-
-    val studentDisplayName = matchedStudent?.studentName ?: userDisplayName ?: "Devendra"
-    val studentRoll = matchedStudent?.rollNumber ?: userRollNumber ?: ""
-    val studentRoom = matchedStudent?.currentRoomNumber ?: ""
 
     LazyColumn(
         modifier = Modifier
@@ -1625,18 +1632,12 @@ private fun UserIndividualReportsView(
                     isExporting = true
                     scope.launch {
                         try {
-                            val studentForPdf = matchedStudent ?: StudentEntity(
-                                studentId = userStudentId ?: "student_self",
+                            val studentForPdf = matchedStudent ?: StudentIdentityResolver.createFallbackStudent(
                                 hostelId = hostelId,
-                                rollNumber = userRollNumber ?: "1",
-                                normalizedRollNumber = userRollNumber ?: "1",
-                                currentWingId = "Main",
-                                currentRoomNumber = "101",
                                 studentName = studentDisplayName,
-                                branch = null,
-                                year = null,
-                                createdAtMillis = System.currentTimeMillis(),
-                                updatedAtMillis = System.currentTimeMillis(),
+                                roomNumber = studentRoom,
+                                studentId = userStudentId,
+                                rollNumber = studentRoll.ifBlank { null },
                             )
 
                             AttendanceReportPdfGenerator().generateAndSharePdf(

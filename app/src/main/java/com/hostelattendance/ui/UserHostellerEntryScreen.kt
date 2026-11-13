@@ -58,6 +58,7 @@ import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.local.StudentEntity
 import com.hostelattendance.data.local.UserSessionManager
 import com.hostelattendance.domain.UserSessionPrivacyRules
+import com.hostelattendance.domain.StudentIdentityResolver
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 
@@ -360,26 +361,34 @@ fun UserHostellerEntryScreen(
                         if (!canEnter) return@Button
                         focusManager.clearFocus()
 
-                        // Resolve student entity if matched
-                        val resolvedStudent = selectedStudent ?: allStudents.firstOrNull {
-                            it.studentName.equals(nameInput.trim(), ignoreCase = true) ||
-                            (it.currentRoomNumber.equals(roomInput.trim(), ignoreCase = true) &&
-                             it.studentName.contains(nameInput.trim(), ignoreCase = true))
+                        scope.launch {
+                            var roster = allStudents
+                            if (roster.isEmpty()) {
+                                roster = application.database.studentDao().getAllStudents(hostelId)
+                            }
+
+                            val resolvedStudent = selectedStudent ?: StudentIdentityResolver.resolveStudent(
+                                roster = roster,
+                                targetStudentId = null,
+                                targetRollNumber = null,
+                                targetName = nameInput.trim(),
+                                targetRoomNumber = roomInput.trim(),
+                            )
+
+                            val sId = resolvedStudent?.studentId
+                            val roll = resolvedStudent?.rollNumber
+
+                            UserSessionManager.saveSelectedHosteller(
+                                context = context,
+                                uid = uid,
+                                hostellerName = nameInput.trim(),
+                                roomNumber = roomInput.trim(),
+                                studentId = sId,
+                                rollNumber = roll,
+                            )
+
+                            onEnter(nameInput.trim(), roomInput.trim(), sId, roll)
                         }
-
-                        val sId = resolvedStudent?.studentId
-                        val roll = resolvedStudent?.rollNumber
-
-                        UserSessionManager.saveSelectedHosteller(
-                            context = context,
-                            uid = uid,
-                            hostellerName = nameInput.trim(),
-                            roomNumber = roomInput.trim(),
-                            studentId = sId,
-                            rollNumber = roll,
-                        )
-
-                        onEnter(nameInput.trim(), roomInput.trim(), sId, roll)
                     },
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(

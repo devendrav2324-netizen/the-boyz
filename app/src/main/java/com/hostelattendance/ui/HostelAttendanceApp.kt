@@ -481,6 +481,7 @@ fun HostelAttendanceApp() {
                         userDisplayName = sessionHostellerName,
                         userStudentId = sessionStudentId,
                         userRollNumber = sessionRollNumber,
+                        userRoomNumber = sessionRoomNumber,
                         onNavigateToRegistration = {
                             navController.navigate("registration") {
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -502,6 +503,7 @@ fun HostelAttendanceApp() {
                         userDisplayName = sessionHostellerName,
                         userStudentId = sessionStudentId,
                         userRollNumber = sessionRollNumber,
+                        userRoomNumber = sessionRoomNumber,
                     )
                 }
                 composable("registration") {

@@ -36,8 +36,9 @@ class AttendanceReportPdfGenerator {
         wingName: String? = null,
         filterDescription: String? = null,
     ) {
-        // Collect dates in range (capped at 15 days)
-        val clampedEnd = if (ChronoUnit.DAYS.between(startDate, endDate) > 14) {
+        // Collect dates in range (capped at 15 days only for multi-student hostel registers; single student reports get full month)
+        val isSingleStudentReport = students.size == 1
+        val clampedEnd = if (!isSingleStudentReport && ChronoUnit.DAYS.between(startDate, endDate) > 14) {
             startDate.plusDays(14)
         } else if (endDate.isBefore(startDate)) {
             startDate
@@ -52,7 +53,11 @@ class AttendanceReportPdfGenerator {
             curr = curr.plusDays(1)
         }
 
-        val dateHeaderFormatter = DateTimeFormatter.ofPattern("dd/MM", Locale.ENGLISH)
+        val dateHeaderFormatter = if (dates.size > 15) {
+            DateTimeFormatter.ofPattern("d", Locale.ENGLISH)
+        } else {
+            DateTimeFormatter.ofPattern("dd/MM", Locale.ENGLISH)
+        }
         val dateHeaders = dates.map { it.format(dateHeaderFormatter) }
 
         // Sort students matching student list standard: Room Number, Roll Number, Name
@@ -64,12 +69,17 @@ class AttendanceReportPdfGenerator {
                 .thenBy { it.studentName }
         )
 
-        // Pre-index records by (studentId, date) and fallback (rollNumber, date)
+        // Pre-index records by (studentId, date), fallback (rollNumber, date), and date directly for single-student reports
         val recordMap = HashMap<Pair<String, String>, AttendanceRecordEntity>(records.size)
         val rollMap = HashMap<Pair<String, String>, AttendanceRecordEntity>(records.size)
+        val dateMap = HashMap<String, AttendanceRecordEntity>(records.size)
         for (r in records) {
             recordMap[Pair(r.studentId, r.localDate)] = r
-            rollMap[Pair(r.rollNumberSnapshot, r.localDate)] = r
+            val rRoll = r.rollNumberSnapshot.trim()
+            if (rRoll.isNotBlank() && rRoll != "—" && rRoll != "N/A" && rRoll != "1") {
+                rollMap[Pair(rRoll, r.localDate)] = r
+            }
+            dateMap[r.localDate] = r
         }
 
         val doc = PdfDocument()
@@ -338,8 +348,14 @@ class AttendanceReportPdfGenerator {
 
                 for (date in dates) {
                     val dateKey = date.toString()
-                    val record = recordMap[Pair(student.studentId, dateKey)]
-                        ?: rollMap[Pair(student.rollNumber, dateKey)]
+                    val record = if (isSingleStudentReport) {
+                        dateMap[dateKey]
+                            ?: recordMap[Pair(student.studentId, dateKey)]
+                            ?: (if (student.rollNumber != "—" && student.rollNumber != "N/A") rollMap[Pair(student.rollNumber, dateKey)] else null)
+                    } else {
+                        recordMap[Pair(student.studentId, dateKey)]
+                            ?: (if (student.rollNumber != "—" && student.rollNumber != "N/A") rollMap[Pair(student.rollNumber, dateKey)] else null)
+                    }
 
                     val (char, paint) = when (record?.status) {
                         "PRESENT" -> {

@@ -17,6 +17,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.graphics.Path
 import com.hostelattendance.domain.UserSessionPrivacyRules
+import com.hostelattendance.domain.StudentIdentityResolver
 import com.hostelattendance.domain.AttendanceDisputeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import java.time.LocalTime
@@ -119,6 +120,7 @@ fun AttendanceScreen(
     userDisplayName: String? = null,
     userStudentId: String? = null,
     userRollNumber: String? = null,
+    userRoomNumber: String? = null,
     onNavigateToRegistration: () -> Unit = {},
     onSwitchHosteller: (() -> Unit)? = null,
 ) {
@@ -131,6 +133,7 @@ fun AttendanceScreen(
         userDisplayName = userDisplayName,
         userStudentId = userStudentId,
         userRollNumber = userRollNumber,
+        userRoomNumber = userRoomNumber,
         onNavigateToRegistration = onNavigateToRegistration,
         onSwitchHosteller = onSwitchHosteller,
         repository = application.attendanceRepository,
@@ -145,6 +148,7 @@ private fun AttendanceScreen(
     userDisplayName: String?,
     userStudentId: String?,
     userRollNumber: String?,
+    userRoomNumber: String?,
     onNavigateToRegistration: () -> Unit,
     onSwitchHosteller: (() -> Unit)?,
     repository: AttendanceRepository,
@@ -155,6 +159,7 @@ private fun AttendanceScreen(
             userDisplayName = userDisplayName,
             userStudentId = userStudentId,
             userRollNumber = userRollNumber,
+            userRoomNumber = userRoomNumber,
             onSwitchHosteller = onSwitchHosteller,
             repository = repository,
         )
@@ -1297,6 +1302,7 @@ private fun UserIndividualAttendanceView(
     userDisplayName: String?,
     userStudentId: String?,
     userRollNumber: String?,
+    userRoomNumber: String?,
     onSwitchHosteller: (() -> Unit)? = null,
     repository: AttendanceRepository,
 ) {
@@ -1314,18 +1320,16 @@ private fun UserIndividualAttendanceView(
     var showDisputeDialog by rememberSaveable { mutableStateOf(false) }
     var showDisputeSuccessDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Resolve student record from local database to get full name and details
+    // Deterministically resolve student record using strict hierarchy
     val allStudents by application.studentRepository.observeAllStudents(hostelId).collectAsState(initial = emptyList())
-    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName) {
-        allStudents.firstOrNull { student ->
-            (userStudentId?.isNotBlank() == true && student.studentId.equals(userStudentId, ignoreCase = true)) ||
-            (userRollNumber?.isNotBlank() == true && student.rollNumber.equals(userRollNumber, ignoreCase = true)) ||
-            (userDisplayName?.isNotBlank() == true && (
-                student.studentName.equals(userDisplayName.trim(), ignoreCase = true) ||
-                student.studentName.contains(userDisplayName.trim(), ignoreCase = true) ||
-                userDisplayName.trim().contains(student.studentName, ignoreCase = true)
-            ))
-        }
+    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName, userRoomNumber) {
+        StudentIdentityResolver.resolveStudent(
+            roster = allStudents,
+            targetStudentId = userStudentId,
+            targetRollNumber = userRollNumber,
+            targetName = userDisplayName,
+            targetRoomNumber = userRoomNumber,
+        )
     }
 
     // Restore / sync attendance for the selected date from Firestore
@@ -1344,21 +1348,26 @@ private fun UserIndividualAttendanceView(
     val rawRecords by repository.observeRecordsForDateRange(hostelId, selectedDateString, selectedDateString)
         .collectAsState(initial = emptyList())
 
-    val userRecord = remember(rawRecords, matchedStudent, userDisplayName, userStudentId) {
+    val studentName = matchedStudent?.studentName ?: userDisplayName?.takeIf { it.isNotBlank() } ?: "Devendra"
+    val studentRoll = matchedStudent?.rollNumber ?: userRollNumber
+
+    val userRecord = remember(rawRecords, matchedStudent, userDisplayName, userStudentId, userRollNumber) {
         val sId = matchedStudent?.studentId ?: userStudentId
-        val sName = matchedStudent?.studentName ?: userDisplayName
+        val sName = studentName
+        val sRoll = studentRoll
         UserSessionPrivacyRules.filterRecordsForUser(
             records = rawRecords,
             userStudentId = sId,
             userStudentName = sName,
+            userRollNumber = sRoll,
             getStudentId = { it.studentId },
             getStudentName = { it.studentNameSnapshot },
+            getRollNumber = { it.rollNumberSnapshot },
         ).firstOrNull()
     }
 
     val currentStatus = userRecord?.status ?: AttendanceStatus.NOT_MARKED.name
     val greeting = remember { UserSessionPrivacyRules.getGreetingForTime(LocalTime.now()) }
-    val studentName = userDisplayName?.takeIf { it.isNotBlank() } ?: matchedStudent?.studentName ?: "Devendra"
     val displayFirstName = remember(studentName) { UserSessionPrivacyRules.extractFirstName(studentName) }
     val formattedDate = remember(selectedDate) { UserSessionPrivacyRules.formatDisplayDate(selectedDate) }
 
