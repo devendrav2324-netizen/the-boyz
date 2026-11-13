@@ -154,6 +154,9 @@ fun HostelAttendanceApp() {
     val allowedWings = approvedAccount?.allowedWingIds ?: emptySet()
     val isAdmin = approvedAccount?.role == "ADMIN"
     val canRegister = isAdmin && (approvedAccount?.canRegisterStudents ?: false)
+    val userDisplayName = approvedAccount?.displayName ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
+    val userStudentId = approvedAccount?.studentId
+    val userRollNumber = approvedAccount?.rollNumber
 
     val destinations = remember(isAdmin) {
         if (isAdmin) {
@@ -431,6 +434,9 @@ fun HostelAttendanceApp() {
                         hostelId = activeHostelId,
                         allowedWingIds = allowedWings,
                         isAdmin = isAdmin,
+                        userDisplayName = userDisplayName,
+                        userStudentId = userStudentId,
+                        userRollNumber = userRollNumber,
                         onNavigateToRegistration = {
                             navController.navigate("registration") {
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -446,6 +452,9 @@ fun HostelAttendanceApp() {
                     ReportsScreen(
                         hostelId = activeHostelId,
                         isAdmin = isAdmin,
+                        userDisplayName = userDisplayName,
+                        userStudentId = userStudentId,
+                        userRollNumber = userRollNumber,
                     )
                 }
                 composable("registration") {
@@ -521,9 +530,11 @@ fun AppRootScaffold() {
                 .fillMaxSize()
                 .prismalGlassLayer(globalGlassBackdrop)
         ) {
-            BackgroundVideoPlayer(
-                videoResId = R.raw.app_bg_video,
+            Image(
+                painter = painterResource(id = R.drawable.app_bg_image),
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
             )
         }
 

@@ -132,6 +132,12 @@ class FirebaseAccountRepository(context: Context) {
                 android.util.Log.w("FirebaseAccount", "Failed to sync user profile: ${e.message}")
             }
 
+            val snapshotDisplayName = snapshot?.getString("displayName")?.trim()
+            val userDisplayName = if (!snapshotDisplayName.isNullOrBlank()) snapshotDisplayName else user.displayName
+            val userEmail = user.email ?: snapshot?.getString("email")
+            val profileStudentId = snapshot?.getString("studentId")?.trim()
+            val profileRollNumber = snapshot?.getString("rollNumber")?.trim()
+
             mutableAccess.value = AccountAccess.Approved(
                 ApprovedAccount(
                     uid = user.uid,
@@ -139,6 +145,10 @@ class FirebaseAccountRepository(context: Context) {
                     role = if (isAdminRole) "ADMIN" else "USER",
                     allowedWingIds = wings.filterIsInstance<String>().toSet(),
                     canRegisterStudents = effectiveCanRegister,
+                    displayName = userDisplayName,
+                    email = userEmail,
+                    studentId = profileStudentId,
+                    rollNumber = profileRollNumber,
                 ),
             )
         } catch (exception: Exception) {
@@ -153,6 +163,8 @@ class FirebaseAccountRepository(context: Context) {
                         role = "USER",
                         allowedWingIds = emptySet(),
                         canRegisterStudents = false,
+                        displayName = user.displayName,
+                        email = user.email,
                     ),
                 )
             }
@@ -160,12 +172,15 @@ class FirebaseAccountRepository(context: Context) {
     }
 
     private fun grantDesignatedAdmin(uid: String) {
+        val user = FirebaseAuth.getInstance().currentUser
         val adminAccount = ApprovedAccount(
             uid = uid,
             hostelId = DEFAULT_HOSTEL_ID,
             role = "ADMIN",
             allowedWingIds = emptySet(),
             canRegisterStudents = true,
+            displayName = user?.displayName ?: "Devendra",
+            email = user?.email,
         )
         mutableAccess.value = AccountAccess.Approved(adminAccount)
 

@@ -6,6 +6,10 @@ data class ApprovedAccount(
     val role: String,
     val allowedWingIds: Set<String>,
     val canRegisterStudents: Boolean,
+    val displayName: String? = null,
+    val email: String? = null,
+    val studentId: String? = null,
+    val rollNumber: String? = null,
 )
 
 sealed interface AccountAccess {

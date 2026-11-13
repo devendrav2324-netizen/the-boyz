@@ -80,6 +80,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.size
+
 import androidx.core.content.FileProvider
 import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.export.AttendanceReportPdfGenerator
@@ -94,6 +98,16 @@ import android.widget.Toast
 import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import com.hostelattendance.domain.UserSessionPrivacyRules
+
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -110,12 +124,18 @@ private enum class ReportScope(val label: String) {
 fun ReportsScreen(
     hostelId: String = "local-installation",
     isAdmin: Boolean = true,
+    userDisplayName: String? = null,
+    userStudentId: String? = null,
+    userRollNumber: String? = null,
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
     ReportsScreen(
         hostelId = hostelId,
         isAdmin = isAdmin,
+        userDisplayName = userDisplayName,
+        userStudentId = userStudentId,
+        userRollNumber = userRollNumber,
         repository = application.attendanceRepository,
     )
 }
@@ -124,8 +144,21 @@ fun ReportsScreen(
 fun ReportsScreen(
     hostelId: String,
     isAdmin: Boolean = true,
+    userDisplayName: String? = null,
+    userStudentId: String? = null,
+    userRollNumber: String? = null,
     repository: AttendanceRepository,
 ) {
+    if (!isAdmin) {
+        UserIndividualReportsView(
+            hostelId = hostelId,
+            userDisplayName = userDisplayName,
+            userStudentId = userStudentId,
+            userRollNumber = userRollNumber,
+            repository = repository,
+        )
+        return
+    }
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
     val today = remember { AttendanceRules.today() }
@@ -1354,6 +1387,467 @@ private fun AttendanceReportRow(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 )
             }
+        }
+    }
+}
+
+
+// =========================================================================
+// USER SESSION - INDIVIDUAL MONTHLY REPORTS VIEW
+// =========================================================================
+
+@Composable
+private fun UserIndividualReportsView(
+    hostelId: String,
+    userDisplayName: String?,
+    userStudentId: String?,
+    userRollNumber: String?,
+    repository: AttendanceRepository,
+) {
+    val context = LocalContext.current
+    val application = context.applicationContext as HostelAttendanceApplication
+    val scope = rememberCoroutineScope()
+
+    var currentYearMonth by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
+    val yearMonth = remember(currentYearMonth) {
+        try { YearMonth.parse(currentYearMonth) } catch (_: Exception) { YearMonth.now() }
+    }
+    val startDate = remember(yearMonth) { yearMonth.atDay(1) }
+    val endDate = remember(yearMonth) { yearMonth.atEndOfMonth() }
+
+    var isExporting by remember { mutableStateOf(false) }
+
+    // Resolve student from repository
+    val allStudents by application.studentRepository.observeAllStudents(hostelId).collectAsState(initial = emptyList())
+    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName) {
+        allStudents.firstOrNull { student ->
+            (userStudentId?.isNotBlank() == true && student.studentId.equals(userStudentId, ignoreCase = true)) ||
+            (userRollNumber?.isNotBlank() == true && student.rollNumber.equals(userRollNumber, ignoreCase = true)) ||
+            (userDisplayName?.isNotBlank() == true && (
+                student.studentName.equals(userDisplayName.trim(), ignoreCase = true) ||
+                student.studentName.contains(userDisplayName.trim(), ignoreCase = true) ||
+                userDisplayName.trim().contains(student.studentName, ignoreCase = true)
+            ))
+        }
+    }
+
+    // Restore attendance for this month from Firestore
+    LaunchedEffect(hostelId, currentYearMonth) {
+        try {
+            com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+                hostelId = hostelId,
+                startDate = startDate.toString(),
+                endDate = endDate.toString(),
+                sessionDao = application.database.attendanceSessionDao(),
+            )
+        } catch (_: Exception) {}
+    }
+
+    // Query records for the entire selected month
+    val allMonthRecords by repository.observeRecordsForDateRange(hostelId, startDate.toString(), endDate.toString())
+        .collectAsState(initial = emptyList())
+
+    // Strictly filter to ONLY this student's records (zero leakage of any other student)
+    val userMonthRecords = remember(allMonthRecords, matchedStudent, userDisplayName, userStudentId) {
+        val sId = matchedStudent?.studentId ?: userStudentId
+        val sName = matchedStudent?.studentName ?: userDisplayName
+        UserSessionPrivacyRules.filterRecordsForUser(
+            records = allMonthRecords,
+            userStudentId = sId,
+            userStudentName = sName,
+            getStudentId = { it.studentId },
+            getStudentName = { it.studentNameSnapshot },
+        ).sortedBy { it.localDate }
+    }
+
+    val stats = remember(userMonthRecords) {
+        UserSessionPrivacyRules.calculateMonthlyStats(userMonthRecords.map { it.status })
+    }
+
+    val monthName = remember(yearMonth) {
+        val m = yearMonth.month.name.lowercase().replaceFirstChar { it.uppercase() }
+        "$m ${yearMonth.year}"
+    }
+
+    val studentDisplayName = matchedStudent?.studentName ?: userDisplayName ?: "Devendra"
+    val studentRoll = matchedStudent?.rollNumber ?: userRollNumber ?: ""
+    val studentRoom = matchedStudent?.currentRoomNumber ?: ""
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item(key = "user_report_header") {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "My Attendance Report",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = buildString {
+                        append(studentDisplayName)
+                        if (studentRoll.isNotBlank()) append(" • Roll #$studentRoll")
+                        if (studentRoom.isNotBlank()) append(" • Room $studentRoom")
+                    },
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+            }
+        }
+
+        // Month Selector with Prev / Next arrows
+        item(key = "month_selector") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0x351E1B4B),
+                                Color(0x200F172A),
+                            )
+                        )
+                    )
+                    .border(
+                        BorderStroke(1.dp, Color(0x40818CF8)),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            currentYearMonth = yearMonth.minusMonths(1).toString()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0x30818CF8)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Text("◀", fontSize = 14.sp)
+                    }
+
+                    Text(
+                        text = monthName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            currentYearMonth = yearMonth.plusMonths(1).toString()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0x30818CF8)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Text("▶", fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+
+        // 4 Key Monthly Statistics Cards (Present, Absent, Leave, Percentage)
+        item(key = "stats_grid") {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    // Total Present Card
+                    UserReportStatCard(
+                        title = "Total Present",
+                        value = "${stats.totalPresent}",
+                        subtitle = "Days Attended",
+                        badgeColor = Color(0xFF22C55E),
+                        badgeText = "P",
+                        modifier = Modifier.weight(1f),
+                    )
+                    // Total Absent Card
+                    UserReportStatCard(
+                        title = "Total Absent",
+                        value = "${stats.totalAbsent}",
+                        subtitle = "Days Missed",
+                        badgeColor = Color(0xFFEF4444),
+                        badgeText = "A",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    // Total Leave Card
+                    UserReportStatCard(
+                        title = "Total Leave",
+                        value = "${stats.totalLeave}",
+                        subtitle = "Days on Leave",
+                        badgeColor = Color(0xFFF59E0B),
+                        badgeText = "L",
+                        modifier = Modifier.weight(1f),
+                    )
+                    // Percentage Card
+                    UserReportStatCard(
+                        title = "Percentage",
+                        value = String.format(Locale.ENGLISH, "%.1f%%", stats.attendancePercentage),
+                        subtitle = "${stats.totalDaysMarked} Days Total",
+                        badgeColor = Color(0xFFC084FC),
+                        badgeText = "%",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        // Export Single Student Report PDF Button
+        item(key = "export_pdf_button") {
+            Button(
+                onClick = {
+                    if (isExporting) return@Button
+                    isExporting = true
+                    scope.launch {
+                        try {
+                            val studentForPdf = matchedStudent ?: StudentEntity(
+                                studentId = userStudentId ?: "student_self",
+                                hostelId = hostelId,
+                                rollNumber = userRollNumber ?: "1",
+                                normalizedRollNumber = userRollNumber ?: "1",
+                                currentWingId = "Main",
+                                currentRoomNumber = "101",
+                                studentName = studentDisplayName,
+                                branch = null,
+                                year = null,
+                                createdAtMillis = System.currentTimeMillis(),
+                                updatedAtMillis = System.currentTimeMillis(),
+                            )
+
+                            AttendanceReportPdfGenerator().generateAndSharePdf(
+                                context = context,
+                                hostelId = hostelId,
+                                startDate = startDate,
+                                endDate = endDate,
+                                students = listOf(studentForPdf),
+                                records = userMonthRecords,
+                                wingName = "Student Personal Report",
+                                filterDescription = "Monthly Attendance: $monthName for $studentDisplayName",
+                            )
+                        } catch (_: Exception) {
+                        } finally {
+                            isExporting = false
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6366F1),
+                    contentColor = Color.White,
+                ),
+                border = BorderStroke(1.dp, Color(0xFF818CF8)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+            ) {
+                if (isExporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text(
+                        text = "Download My Monthly Report (PDF)",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
+        // Section Title: Daily Attendance Breakdown
+        item(key = "daily_breakdown_title") {
+            Text(
+                text = "Daily Records ($monthName)",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        if (userMonthRecords.isEmpty()) {
+            item(key = "empty_records") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0x251E1B4B))
+                        .border(BorderStroke(1.dp, Color(0x30818CF8)), RoundedCornerShape(18.dp))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No attendance recorded for $monthName.",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.65f),
+                    )
+                }
+            }
+        } else {
+            items(
+                items = userMonthRecords,
+                key = { it.recordId },
+            ) { record ->
+                val dateParsed = try { LocalDate.parse(record.localDate) } catch (_: Exception) { null }
+                val dateLabel = if (dateParsed != null) {
+                    dateParsed.format(DateTimeFormatter.ofPattern("d MMM yyyy (EEE)", Locale.ENGLISH))
+                } else {
+                    record.localDate
+                }
+
+                val statusBadgeColor = when (record.status.uppercase(Locale.ENGLISH)) {
+                    AttendanceStatus.PRESENT.name -> Color(0xFF22C55E)
+                    AttendanceStatus.ABSENT.name -> Color(0xFFEF4444)
+                    AttendanceStatus.LEAVE.name -> Color(0xFFF59E0B)
+                    else -> Color(0xFF64748B)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0x301E1B4B),
+                                    Color(0x1A0F172A),
+                                )
+                            )
+                        )
+                        .border(
+                            BorderStroke(1.dp, Color(0x25818CF8)),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = dateLabel,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(statusBadgeColor.copy(alpha = 0.25f))
+                                .border(BorderStroke(1.dp, statusBadgeColor.copy(alpha = 0.6f)), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 14.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = record.status.lowercase().replaceFirstChar { it.uppercase() },
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = statusBadgeColor,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserReportStatCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    badgeColor: Color,
+    badgeText: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0x351E1B4B),
+                        Color(0x1F0F172A),
+                    )
+                )
+            )
+            .border(
+                BorderStroke(1.dp, Color(0x35818CF8)),
+                RoundedCornerShape(20.dp)
+            )
+            .padding(14.dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontWeight = FontWeight.Medium,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(badgeColor.copy(alpha = 0.25f))
+                        .border(BorderStroke(1.dp, badgeColor.copy(alpha = 0.7f)), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = badgeText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeColor,
+                    )
+                }
+            }
+
+            Text(
+                text = value,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.5f),
+            )
         }
     }
 }

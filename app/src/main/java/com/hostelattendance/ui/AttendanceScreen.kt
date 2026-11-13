@@ -1,5 +1,27 @@
 package com.hostelattendance.ui
 
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.Path
+import com.hostelattendance.domain.UserSessionPrivacyRules
+import com.hostelattendance.domain.AttendanceDisputeRequest
+import com.google.firebase.firestore.FirebaseFirestore
+import java.time.LocalTime
+
+
 import android.app.DatePickerDialog
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -66,6 +88,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.local.AttendanceRecordEntity
 import com.hostelattendance.data.local.AttendanceSessionWithRecords
@@ -93,6 +116,9 @@ fun AttendanceScreen(
     hostelId: String = DEFAULT_HOSTEL_ID,
     allowedWingIds: Set<String> = emptySet(),
     isAdmin: Boolean = true,
+    userDisplayName: String? = null,
+    userStudentId: String? = null,
+    userRollNumber: String? = null,
     onNavigateToRegistration: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -101,6 +127,9 @@ fun AttendanceScreen(
         hostelId = hostelId,
         allowedWingIds = allowedWingIds,
         isAdmin = isAdmin,
+        userDisplayName = userDisplayName,
+        userStudentId = userStudentId,
+        userRollNumber = userRollNumber,
         onNavigateToRegistration = onNavigateToRegistration,
         repository = application.attendanceRepository,
     )
@@ -111,9 +140,22 @@ private fun AttendanceScreen(
     hostelId: String,
     allowedWingIds: Set<String>,
     isAdmin: Boolean,
+    userDisplayName: String?,
+    userStudentId: String?,
+    userRollNumber: String?,
     onNavigateToRegistration: () -> Unit,
     repository: AttendanceRepository,
 ) {
+    if (!isAdmin) {
+        UserIndividualAttendanceView(
+            hostelId = hostelId,
+            userDisplayName = userDisplayName,
+            userStudentId = userStudentId,
+            userRollNumber = userRollNumber,
+            repository = repository,
+        )
+        return
+    }
     val context = LocalContext.current
     val application = context.applicationContext as HostelAttendanceApplication
     val allWings by repository.observeWings(hostelId).collectAsState(initial = emptyList())
@@ -1239,3 +1281,594 @@ private val AttendanceStatus.accessibilityLabel: String
         AttendanceStatus.LEAVE -> "Leave"
         AttendanceStatus.NOT_MARKED -> "Not marked"
     }
+
+
+// =========================================================================
+// USER SESSION - INDIVIDUAL ATTENDANCE VIEW (Matches Reference Design)
+// =========================================================================
+
+@Composable
+private fun UserIndividualAttendanceView(
+    hostelId: String,
+    userDisplayName: String?,
+    userStudentId: String?,
+    userRollNumber: String?,
+    repository: AttendanceRepository,
+) {
+    val context = LocalContext.current
+    val application = context.applicationContext as HostelAttendanceApplication
+    val scope = rememberCoroutineScope()
+
+    var selectedDateString by rememberSaveable { mutableStateOf(AttendanceRules.today().toString()) }
+    val selectedDate = remember(selectedDateString) {
+        try { LocalDate.parse(selectedDateString) } catch (_: Exception) { AttendanceRules.today() }
+    }
+    val today = remember { AttendanceRules.today() }
+    val isToday = remember(selectedDate, today) { selectedDate == today }
+
+    var showDisputeDialog by rememberSaveable { mutableStateOf(false) }
+    var showDisputeSuccessDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Resolve student record from local database to get full name and details
+    val allStudents by application.studentRepository.observeAllStudents(hostelId).collectAsState(initial = emptyList())
+    val matchedStudent = remember(allStudents, userStudentId, userRollNumber, userDisplayName) {
+        allStudents.firstOrNull { student ->
+            (userStudentId?.isNotBlank() == true && student.studentId.equals(userStudentId, ignoreCase = true)) ||
+            (userRollNumber?.isNotBlank() == true && student.rollNumber.equals(userRollNumber, ignoreCase = true)) ||
+            (userDisplayName?.isNotBlank() == true && (
+                student.studentName.equals(userDisplayName.trim(), ignoreCase = true) ||
+                student.studentName.contains(userDisplayName.trim(), ignoreCase = true) ||
+                userDisplayName.trim().contains(student.studentName, ignoreCase = true)
+            ))
+        }
+    }
+
+    // Restore / sync attendance for the selected date from Firestore
+    LaunchedEffect(hostelId, selectedDateString) {
+        try {
+            com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+                hostelId = hostelId,
+                startDate = selectedDateString,
+                endDate = selectedDateString,
+                sessionDao = application.database.attendanceSessionDao(),
+            )
+        } catch (_: Exception) {}
+    }
+
+    // Observe records for this date and strictly filter to ONLY the logged-in student
+    val rawRecords by repository.observeRecordsForDateRange(hostelId, selectedDateString, selectedDateString)
+        .collectAsState(initial = emptyList())
+
+    val userRecord = remember(rawRecords, matchedStudent, userDisplayName, userStudentId) {
+        val sId = matchedStudent?.studentId ?: userStudentId
+        val sName = matchedStudent?.studentName ?: userDisplayName
+        UserSessionPrivacyRules.filterRecordsForUser(
+            records = rawRecords,
+            userStudentId = sId,
+            userStudentName = sName,
+            getStudentId = { it.studentId },
+            getStudentName = { it.studentNameSnapshot },
+        ).firstOrNull()
+    }
+
+    val currentStatus = userRecord?.status ?: AttendanceStatus.NOT_MARKED.name
+    val greeting = remember { UserSessionPrivacyRules.getGreetingForTime(LocalTime.now()) }
+    val studentName = matchedStudent?.studentName ?: userDisplayName ?: "Devendra"
+    val displayFirstName = remember(studentName) { UserSessionPrivacyRules.extractFirstName(studentName) }
+    val formattedDate = remember(selectedDate) { UserSessionPrivacyRules.formatDisplayDate(selectedDate) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top,
+    ) {
+        Spacer(modifier = Modifier.height(36.dp))
+
+        // Cursive script greeting (matches reference: "Good morning")
+        Text(
+            text = greeting,
+            style = TextStyle(
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Normal,
+                fontStyle = FontStyle.Italic,
+                fontFamily = FontFamily.Serif,
+                color = Color(0xFFE9D5FF),
+            ),
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Bold Title: First Name (matches reference: "Devendra")
+        Text(
+            text = displayFirstName,
+            style = MaterialTheme.typography.displaySmall.copy(
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            ),
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Date row with calendar icon (clickable to view other dates)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    DatePickerDialog(
+                        context,
+                        { _, y, m, d ->
+                            selectedDateString = LocalDate.of(y, m + 1, d).toString()
+                        },
+                        selectedDate.year,
+                        selectedDate.monthValue - 1,
+                        selectedDate.dayOfMonth,
+                    ).show()
+                }
+                .padding(vertical = 4.dp, horizontal = 2.dp)
+        ) {
+            CalendarVectorIcon(tint = Color(0xFF94A3B8))
+            Text(
+                text = formattedDate,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF94A3B8),
+            )
+            if (!isToday) {
+                Text(
+                    text = "• Today",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFA855F7),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { selectedDateString = today.toString() }
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(56.dp))
+
+        // Main Attendance Status Glass Card (matches reference)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0x3B1E1B4B),
+                            Color(0x22111827),
+                        )
+                    )
+                )
+                .border(
+                    BorderStroke(
+                        1.2.dp,
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0x60818CF8),
+                                Color(0x223B82F6),
+                            )
+                        )
+                    ),
+                    RoundedCornerShape(26.dp)
+                )
+                .padding(horizontal = 20.dp, vertical = 22.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Circular Glowing Badge with checkmark/cross/clock
+                StatusGlowingBadge(status = currentStatus)
+
+                // Thin vertical separator line
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(48.dp)
+                        .background(Color.White.copy(alpha = 0.15f))
+                )
+
+                // Label and large status indicator
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Your Attendance is marked as",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontWeight = FontWeight.Normal,
+                    )
+                    Text(
+                        text = when (currentStatus) {
+                            AttendanceStatus.PRESENT.name -> "Present"
+                            AttendanceStatus.ABSENT.name -> "Absent"
+                            AttendanceStatus.LEAVE.name -> "Leave"
+                            else -> "Not Marked Yet"
+                        },
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when (currentStatus) {
+                            AttendanceStatus.PRESENT.name -> Color(0xFFC084FC) // Lilac/violet as in reference
+                            AttendanceStatus.ABSENT.name -> Color(0xFFF87171)
+                            AttendanceStatus.LEAVE.name -> Color(0xFFFBBF24)
+                            else -> Color(0xFF94A3B8)
+                        },
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // "Request for Wrong Attendance" Action Card (matches reference)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0x331E1B4B),
+                            Color(0x200F172A),
+                        )
+                    )
+                )
+                .border(
+                    BorderStroke(
+                        1.dp,
+                        Color(0x35818CF8)
+                    ),
+                    RoundedCornerShape(22.dp)
+                )
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Request for Wrong Attendance",
+                    fontSize = 15.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = { showDisputeDialog = true },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0x356366F1),
+                        contentColor = Color.White,
+                    ),
+                    border = BorderStroke(1.dp, Color(0x60818CF8)),
+                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Request",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDisputeDialog) {
+        AttendanceDisputeDialog(
+            dateDisplay = formattedDate,
+            currentStatus = currentStatus,
+            onDismiss = { showDisputeDialog = false },
+            onSubmit = { claimedStatus, reason ->
+                showDisputeDialog = false
+                val effectiveStudentId = matchedStudent?.studentId ?: userStudentId ?: "student_${System.currentTimeMillis()}"
+                val effectiveStudentName = matchedStudent?.studentName ?: userDisplayName ?: "Student"
+
+                scope.launch {
+                    try {
+                        FirebaseFirestore.getInstance()
+                            .collection("attendance_disputes")
+                            .add(
+                                mapOf(
+                                    "hostelId" to hostelId,
+                                    "studentId" to effectiveStudentId,
+                                    "studentName" to effectiveStudentName,
+                                    "localDate" to selectedDateString,
+                                    "markedStatus" to currentStatus,
+                                    "claimedStatus" to claimedStatus,
+                                    "reason" to reason,
+                                    "createdAtMillis" to System.currentTimeMillis(),
+                                    "status" to "PENDING",
+                                )
+                            )
+                    } catch (_: Exception) {}
+                    showDisputeSuccessDialog = true
+                }
+            }
+        )
+    }
+
+    if (showDisputeSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisputeSuccessDialog = false },
+            title = {
+                Text(
+                    text = "Request Submitted",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            },
+            text = {
+                Text(
+                    text = "Your attendance correction request for $formattedDate has been sent to the hostel administration for review.",
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showDisputeSuccessDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                ) {
+                    Text("OK", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1B4B),
+            shape = RoundedCornerShape(20.dp),
+        )
+    }
+}
+
+@Composable
+private fun StatusGlowingBadge(status: String) {
+    val glowColor = when (status) {
+        AttendanceStatus.PRESENT.name -> Color(0xFF22C55E) // Vibrant emerald
+        AttendanceStatus.ABSENT.name -> Color(0xFFEF4444)  // Vibrant red
+        AttendanceStatus.LEAVE.name -> Color(0xFFF59E0B)   // Vibrant amber
+        else -> Color(0xFF64748B)                          // Muted slate
+    }
+
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        glowColor.copy(alpha = 0.95f),
+                        glowColor.copy(alpha = 0.60f),
+                        glowColor.copy(alpha = 0.20f),
+                    )
+                )
+            )
+            .border(
+                BorderStroke(2.dp, glowColor.copy(alpha = 0.85f)),
+                CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+            val strokeWidth = 3.2.dp.toPx()
+            when (status) {
+                AttendanceStatus.PRESENT.name -> {
+                    val path = Path().apply {
+                        moveTo(size.width * 0.20f, size.height * 0.52f)
+                        lineTo(size.width * 0.44f, size.height * 0.74f)
+                        lineTo(size.width * 0.82f, size.height * 0.28f)
+                    }
+                    drawPath(
+                        path = path,
+                        color = Color.White,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                    )
+                }
+                AttendanceStatus.ABSENT.name -> {
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(size.width * 0.26f, size.height * 0.26f),
+                        end = Offset(size.width * 0.74f, size.height * 0.74f),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(size.width * 0.74f, size.height * 0.26f),
+                        end = Offset(size.width * 0.26f, size.height * 0.74f),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+                AttendanceStatus.LEAVE.name -> {
+                    drawCircle(
+                        color = Color.White,
+                        radius = size.width * 0.42f,
+                        style = Stroke(width = strokeWidth)
+                    )
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(size.width * 0.5f, size.height * 0.5f),
+                        end = Offset(size.width * 0.5f, size.height * 0.26f),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(size.width * 0.5f, size.height * 0.5f),
+                        end = Offset(size.width * 0.70f, size.height * 0.5f),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+                else -> {
+                    drawLine(
+                        color = Color.White,
+                        start = Offset(size.width * 0.28f, size.height * 0.5f),
+                        end = Offset(size.width * 0.72f, size.height * 0.5f),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalendarVectorIcon(
+    tint: Color,
+    modifier: Modifier = Modifier.size(18.dp)
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(0f, h * 0.18f),
+            size = Size(w, h * 0.82f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
+            style = Stroke(width = stroke)
+        )
+        drawLine(
+            color = tint,
+            start = Offset(0f, h * 0.42f),
+            end = Offset(w, h * 0.42f),
+            strokeWidth = stroke
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.28f, 0f),
+            end = Offset(w * 0.28f, h * 0.24f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = tint,
+            start = Offset(w * 0.72f, 0f),
+            end = Offset(w * 0.72f, h * 0.24f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        val dotRadius = 1.2.dp.toPx()
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.32f, h * 0.62f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.50f, h * 0.62f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.68f, h * 0.62f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.32f, h * 0.80f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.50f, h * 0.80f))
+        drawCircle(color = tint, radius = dotRadius, center = Offset(w * 0.68f, h * 0.80f))
+    }
+}
+
+@Composable
+private fun AttendanceDisputeDialog(
+    dateDisplay: String,
+    currentStatus: String,
+    onDismiss: () -> Unit,
+    onSubmit: (claimedStatus: String, reason: String) -> Unit,
+) {
+    var selectedClaim by remember { mutableStateOf("PRESENT") }
+    var reasonText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Request Wrong Attendance",
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Date: $dateDisplay\nCurrent recorded status: $currentStatus",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.75f),
+                )
+
+                Text(
+                    text = "Select your correct status:",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf("PRESENT", "LEAVE", "ABSENT").forEach { option ->
+                        val isSelected = selectedClaim == option
+                        OutlinedButton(
+                            onClick = { selectedClaim = option },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) Color(0x406366F1) else Color.Transparent,
+                                contentColor = if (isSelected) Color(0xFFC084FC) else Color.White.copy(alpha = 0.7f),
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) Color(0xFF818CF8) else Color.White.copy(alpha = 0.2f)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = option.lowercase().replaceFirstChar { it.uppercase() },
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = reasonText,
+                    onValueChange = { reasonText = it },
+                    label = { Text("Reason / Explanation", color = Color.White.copy(alpha = 0.7f)) },
+                    placeholder = { Text("e.g. Present in room 102 during roll call", color = Color.White.copy(alpha = 0.4f)) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF818CF8),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 4,
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(selectedClaim, reasonText.trim()) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Submit Request", color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+            }
+        },
+        containerColor = Color(0xFF1E1B4B),
+        shape = RoundedCornerShape(24.dp),
+    )
+}
