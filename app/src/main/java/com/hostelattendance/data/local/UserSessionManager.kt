@@ -372,4 +372,49 @@ object UserSessionManager {
 
         return Pair(true, null)
     }
+
+    // --- ID Card Photo Management ---
+    private const val KEY_ID_CARD_PHOTO_PATH = "id_card_photo_path_"
+
+    fun getIdCardPhotoPath(context: Context, uid: String): String? {
+        if (uid.isBlank()) return null
+        val path = getPrefs(context).getString(KEY_ID_CARD_PHOTO_PATH + uid, null)
+        if (path != null && java.io.File(path).exists()) {
+            return path
+        }
+        return null
+    }
+
+    fun saveIdCardPhotoFromUri(context: Context, uid: String, uri: android.net.Uri): String? {
+        if (uid.isBlank()) return null
+        return try {
+            val dir = java.io.File(context.filesDir, "id_cards")
+            if (!dir.exists()) dir.mkdirs()
+            val targetFile = java.io.File(dir, "photo_${uid}.jpg")
+
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                java.io.FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            val savedPath = targetFile.absolutePath
+            getPrefs(context).edit().putString(KEY_ID_CARD_PHOTO_PATH + uid, savedPath).apply()
+            savedPath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun clearIdCardPhoto(context: Context, uid: String) {
+        if (uid.isBlank()) return
+        try {
+            val path = getPrefs(context).getString(KEY_ID_CARD_PHOTO_PATH + uid, null)
+            if (path != null) {
+                val file = java.io.File(path)
+                if (file.exists()) file.delete()
+            }
+        } catch (_: Exception) {}
+        getPrefs(context).edit().remove(KEY_ID_CARD_PHOTO_PATH + uid).apply()
+    }
 }

@@ -127,13 +127,14 @@ private enum class DestinationIcon {
     ATTENDANCE,
     REPORTS,
     REGISTRATION,
+    ID_CARD,
     SETTINGS,
 }
 
 private val AppleEaseInOut = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1.0f)
 private const val APPLE_TRANSITION_DURATION = 600
 
-private val allNavRoutes = listOf("attendance", "reports", "registration", "settings")
+private val allNavRoutes = listOf("attendance", "reports", "registration", "id_card", "settings")
 
 @Composable
 fun HostelAttendanceApp() {
@@ -184,6 +185,7 @@ fun HostelAttendanceApp() {
             listOf(
                 AppDestination("attendance", "Attendance", DestinationIcon.ATTENDANCE),
                 AppDestination("reports", "Reports", DestinationIcon.REPORTS),
+                AppDestination("id_card", "ID Card", DestinationIcon.ID_CARD),
                 AppDestination("settings", "Settings", DestinationIcon.SETTINGS),
             )
         }
@@ -544,6 +546,26 @@ fun HostelAttendanceApp() {
                             hostelId = activeHostelId,
                             canRegisterStudents = canRegister,
                             isAdmin = isAdmin,
+                        )
+                    }
+                }
+                composable("id_card") {
+                    if (isAdmin) {
+                        LaunchedEffect(Unit) {
+                            navController.navigate("attendance") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                            }
+                        }
+                    } else {
+                        IdCardScreen(
+                            studentName = sessionHostellerName,
+                            roomNumber = sessionRoomNumber,
+                            studentId = sessionStudentId,
+                            rollNumber = sessionRollNumber,
+                            uid = uid,
                         )
                     }
                 }
@@ -1035,6 +1057,45 @@ private fun NavigationGlyph(
                     path = bodyPath,
                     color = color,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                )
+            }
+            DestinationIcon.ID_CARD -> {
+                // Outer ID badge card outline
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(w * 0.12f, h * 0.15f),
+                    size = Size(w * 0.76f, h * 0.70f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
+                    style = Stroke(width = strokeWidth),
+                )
+                // Head circle
+                drawCircle(
+                    color = color,
+                    radius = w * 0.12f,
+                    center = Offset(w * 0.36f, h * 0.44f),
+                )
+                // Text lines on right
+                drawLine(
+                    color = color,
+                    start = Offset(w * 0.58f, h * 0.38f),
+                    end = Offset(w * 0.78f, h * 0.38f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
+                drawLine(
+                    color = color,
+                    start = Offset(w * 0.58f, h * 0.52f),
+                    end = Offset(w * 0.74f, h * 0.52f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
+                // Bottom line
+                drawLine(
+                    color = color,
+                    start = Offset(w * 0.24f, h * 0.68f),
+                    end = Offset(w * 0.76f, h * 0.68f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
                 )
             }
             DestinationIcon.SETTINGS -> {
