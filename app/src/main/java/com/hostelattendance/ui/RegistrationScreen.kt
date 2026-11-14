@@ -47,6 +47,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -56,6 +61,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -79,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.hostelattendance.HostelAttendanceApplication
 import com.hostelattendance.data.excel.ExcelImportAnalysis
@@ -145,6 +153,12 @@ private fun RegistrationScreen(
     var wingMenuExpanded by remember { mutableStateOf(false) }
     var showAddWingDialog by remember { mutableStateOf(false) }
     var newWingName by remember { mutableStateOf("") }
+    var showRemoveWingDialog by remember { mutableStateOf(false) }
+    var wingToRemove by remember { mutableStateOf<WingEntity?>(null) }
+    var showRemoveStudentDialog by remember { mutableStateOf(false) }
+    var studentToRemove by remember { mutableStateOf<StudentEntity?>(null) }
+    var removeStudentSearchQuery by rememberSaveable { mutableStateOf("") }
+    var isDeletingData by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
@@ -567,6 +581,25 @@ private fun RegistrationScreen(
                                     ) {
                                         Text("Add wing")
                                     }
+
+                                    val removeWingInteractionSource = rememberMotionInteractionSource()
+                                    OutlinedButton(
+                                        onClick = {
+                                            showRemoveWingDialog = true
+                                        },
+                                        shape = registrationControlShape,
+                                        enabled = wings.isNotEmpty(),
+                                        border = BorderStroke(1.dp, Color(0xFFF43F5E).copy(alpha = 0.6f)),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = Color(0xFFFB7185),
+                                        ),
+                                        interactionSource = removeWingInteractionSource,
+                                        modifier = Modifier
+                                            .heightIn(min = 56.dp)
+                                            .pressFeedback(removeWingInteractionSource),
+                                    ) {
+                                        Text("Remove wing")
+                                    }
                                 }
                             }
 
@@ -737,6 +770,21 @@ private fun RegistrationScreen(
                         studentToEdit = student
                     },
                 )
+            }
+
+            // SECTION: Permanent Removal Tools (Remove Student Data & Remove Wing)
+            if (isAdmin) {
+                item(key = "removal_management_tools_section") {
+                    AdminRemovalToolsSection(
+                        onOpenRemoveStudent = {
+                            removeStudentSearchQuery = ""
+                            showRemoveStudentDialog = true
+                        },
+                        onOpenRemoveWing = {
+                            showRemoveWingDialog = true
+                        },
+                    )
+                }
             }
 
             // SECTION: Print all student sheet (Excel-style PDF) - Active residents only
@@ -1026,6 +1074,32 @@ private fun RegistrationScreen(
                             onCheckedChange = { editIsActive = it },
                         )
                     }
+
+                    if (isAdmin) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val s = student
+                                studentToEdit = null
+                                studentToRemove = s
+                            },
+                            shape = registrationControlShape,
+                            border = BorderStroke(1.dp, Color(0xFFF43F5E)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFFB7185),
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFFB7185),
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Remove Student Permanently", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -1058,6 +1132,408 @@ private fun RegistrationScreen(
             },
             dismissButton = {
                 TextButton(onClick = { studentToEdit = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Remove Student Data Picker Dialog
+    if (showRemoveStudentDialog) {
+        val wingMap = remember(wings) { wings.associateBy { it.wingId } }
+        val matchingRemovalStudents = remember(allStudents, removeStudentSearchQuery) {
+            val q = removeStudentSearchQuery.trim().lowercase()
+            if (q.isBlank()) allStudents.take(25)
+            else {
+                allStudents.filter { student ->
+                    student.studentName.lowercase().contains(q) ||
+                    student.rollNumber.lowercase().contains(q) ||
+                    student.currentRoomNumber.lowercase().contains(q)
+                }
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showRemoveStudentDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFFB7185),
+                    )
+                    Text("Remove Student Data", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "Select a student to permanently remove from the database:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    OutlinedTextField(
+                        value = removeStudentSearchQuery,
+                        onValueChange = { removeStudentSearchQuery = it },
+                        placeholder = { Text("Search by name, roll, or room...") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Search, contentDescription = null)
+                        },
+                        trailingIcon = {
+                            if (removeStudentSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { removeStudentSearchQuery = "" }) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Clear")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = registrationControlShape,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    if (matchingRemovalStudents.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No students match your search.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(matchingRemovalStudents, key = { it.studentId }) { student ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0x1F2B2836),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = student.studentName,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp,
+                                            )
+                                            val wingName = wingMap[student.currentWingId]?.name ?: "Wing"
+                                            Text(
+                                                text = "Roll: ${student.rollNumber} · $wingName · Room ${student.currentRoomNumber}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                showRemoveStudentDialog = false
+                                                studentToRemove = student
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0x35F43F5E),
+                                                contentColor = Color(0xFFFDA4AF),
+                                            ),
+                                            border = BorderStroke(1.dp, Color(0xFFFB7185)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(34.dp),
+                                        ) {
+                                            Text("Remove", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showRemoveStudentDialog = false }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+
+    // Student Permanent Removal Confirmation Dialog
+    studentToRemove?.let { student ->
+        AlertDialog(
+            onDismissRequest = {
+                if (!isDeletingData) studentToRemove = null
+            },
+            title = {
+                Text(
+                    text = "Permanently Remove Student?",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFB7185),
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Are you sure you want to permanently remove this student from the database?",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text("• Name: ${student.studentName}")
+                    Text("• Roll Number: ${student.rollNumber}")
+                    Text("• Room Number: ${student.currentRoomNumber}")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "⚠️ This will permanently delete this student, their attendance history, and cloud bindings from both device storage and Cloud Firestore. This action cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFDA4AF),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isDeletingData) return@Button
+                        isDeletingData = true
+                        scope.launch {
+                            try {
+                                repository.deleteStudent(hostelId, student.studentId)
+                                successMessage = "Permanently removed resident ${student.studentName} from database."
+                                errorMessage = null
+                                studentToRemove = null
+                            } catch (e: Exception) {
+                                errorMessage = e.message ?: "Failed to delete student from database."
+                            } finally {
+                                isDeletingData = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE11D48),
+                        contentColor = Color.White,
+                    ),
+                    enabled = !isDeletingData,
+                ) {
+                    if (isDeletingData) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text("Delete Permanently", fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { studentToRemove = null },
+                    enabled = !isDeletingData,
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    // Remove Wing Picker Dialog
+    if (showRemoveWingDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveWingDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFFB7185),
+                    )
+                    Text("Remove Wing", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Select a wing to permanently remove from the database:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    if (wings.isEmpty()) {
+                        Text(
+                            text = "No wings available to remove.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 16.dp),
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(wings, key = { it.wingId }) { wing ->
+                                val count = allStudents.count { it.currentWingId == wing.wingId }
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color(0x1F2B2836),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = wing.name,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                            )
+                                            Text(
+                                                text = if (count == 0) "No registered students" else "$count registered resident(s)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = if (count > 0) Color(0xFFFDA4AF) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                showRemoveWingDialog = false
+                                                wingToRemove = wing
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0x35F43F5E),
+                                                contentColor = Color(0xFFFDA4AF),
+                                            ),
+                                            border = BorderStroke(1.dp, Color(0xFFFB7185)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(34.dp),
+                                        ) {
+                                            Text("Remove", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showRemoveWingDialog = false }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+
+    // Wing Permanent Removal Confirmation Dialog
+    wingToRemove?.let { wing ->
+        val count = remember(wing, allStudents) { allStudents.count { it.currentWingId == wing.wingId } }
+        AlertDialog(
+            onDismissRequest = {
+                if (!isDeletingData) wingToRemove = null
+            },
+            title = {
+                Text(
+                    text = "Permanently Remove Wing ${wing.name}?",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFB7185),
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (count > 0) {
+                        Text(
+                            text = "⚠️ Warning: This wing currently contains $count registered student(s).",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFB7185),
+                        )
+                        Text(
+                            text = "Removing this wing will permanently delete the wing AND ALL $count registered student(s) along with their attendance records from both the device and Cloud Firestore.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        Text(
+                            text = "Are you sure you want to permanently remove ${wing.name} from the database? This cannot be undone.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isDeletingData) return@Button
+                        isDeletingData = true
+                        scope.launch {
+                            try {
+                                repository.deleteWing(hostelId, wing.wingId)
+                                if (selectedWingId == wing.wingId) {
+                                    selectedWingId = ""
+                                }
+                                successMessage = "Permanently removed wing ${wing.name} from database."
+                                errorMessage = null
+                                wingToRemove = null
+                            } catch (e: Exception) {
+                                errorMessage = e.message ?: "Failed to remove wing from database."
+                            } finally {
+                                isDeletingData = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE11D48),
+                        contentColor = Color.White,
+                    ),
+                    enabled = !isDeletingData,
+                ) {
+                    if (isDeletingData) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text("Delete Wing Permanently", fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { wingToRemove = null },
+                    enabled = !isDeletingData,
+                ) {
                     Text("Cancel")
                 }
             },
@@ -1833,6 +2309,103 @@ private fun InactiveStudentCard(
                         text = "+ Add this student",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminRemovalToolsSection(
+    onOpenRemoveStudent: () -> Unit,
+    onOpenRemoveWing: () -> Unit,
+) {
+    GlassPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = Color(0xFFFB7185),
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = "Permanent Removal Tools",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                text = "Permanently purge invalid resident entries, duplicate records, or obsolete wings from both device storage and Cloud Firestore.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                val removeStudentInteraction = rememberMotionInteractionSource()
+                OutlinedButton(
+                    onClick = onOpenRemoveStudent,
+                    shape = registrationControlShape,
+                    border = BorderStroke(1.2.dp, Color(0xFFF43F5E).copy(alpha = 0.7f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFFDA4AF),
+                        containerColor = Color(0x15F43F5E),
+                    ),
+                    interactionSource = removeStudentInteraction,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 50.dp)
+                        .pressFeedback(removeStudentInteraction),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Remove Student Data",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                    )
+                }
+
+                val removeWingInteraction = rememberMotionInteractionSource()
+                OutlinedButton(
+                    onClick = onOpenRemoveWing,
+                    shape = registrationControlShape,
+                    border = BorderStroke(1.2.dp, Color(0xFFF43F5E).copy(alpha = 0.7f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFFDA4AF),
+                        containerColor = Color(0x15F43F5E),
+                    ),
+                    interactionSource = removeWingInteraction,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 50.dp)
+                        .pressFeedback(removeWingInteraction),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Remove Wing",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
                     )
                 }
             }

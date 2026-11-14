@@ -49,4 +49,7 @@ interface WingDao {
 
     @Query("SELECT COUNT(*) FROM wings")
     suspend fun getWingCount(): Int
+
+    @Query("DELETE FROM wings WHERE wingId = :wingId")
+    suspend fun deleteById(wingId: String): Int
 }

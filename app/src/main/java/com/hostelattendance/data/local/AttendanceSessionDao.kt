@@ -238,4 +238,13 @@ interface AttendanceSessionDao {
 
     @Query("SELECT COUNT(*) FROM attendance_sessions")
     suspend fun getTotalSessionCount(): Int
+
+    @Query("DELETE FROM attendance_records WHERE studentId = :studentId")
+    suspend fun deleteAllRecordsForStudent(studentId: String): Int
+
+    @Query("DELETE FROM attendance_records WHERE hostelId = :hostelId AND wingIdSnapshot = :wingId")
+    suspend fun deleteRecordsByWingId(hostelId: String, wingId: String): Int
+
+    @Query("DELETE FROM attendance_sessions WHERE hostelId = :hostelId AND wingId = :wingId")
+    suspend fun deleteSessionsByWingId(hostelId: String, wingId: String): Int
 }

@@ -57,6 +57,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -65,6 +68,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -317,6 +322,18 @@ private fun AttendanceScreen(
     }
     val totals = remember(records) { AttendanceRules.totals(records.map { it.status }) }
     val selectedWing = wings.firstOrNull { it.wingId == selectedWingId }
+    var attendanceSearchQuery by rememberSaveable { mutableStateOf("") }
+    val displayedRecords = remember(records, attendanceSearchQuery) {
+        val q = attendanceSearchQuery.trim().lowercase()
+        if (q.isBlank()) records
+        else {
+            records.filter { r ->
+                r.studentNameSnapshot.lowercase().contains(q) ||
+                r.rollNumberSnapshot.lowercase().contains(q) ||
+                r.roomNumberSnapshot.lowercase().contains(q)
+            }
+        }
+    }
     val listState = rememberLazyListState()
 
     LazyColumn(
@@ -558,10 +575,82 @@ private fun AttendanceScreen(
                 }
             }
 
+            // Search student option in the attendance tab
+            item(key = "attendance_search_student_bar") {
+                GlassPanel(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = attendanceSearchQuery,
+                            onValueChange = { attendanceSearchQuery = it },
+                            placeholder = { Text("Search student by name, roll, or room...") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Search student",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            },
+                            trailingIcon = {
+                                if (attendanceSearchQuery.isNotBlank()) {
+                                    IconButton(onClick = { attendanceSearchQuery = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear search",
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0x181E1B4B),
+                                unfocusedContainerColor = Color(0x101E1B4B),
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (attendanceSearchQuery.isNotBlank()) {
+                            Text(
+                                text = "Showing ${displayedRecords.size} of ${records.size} residents in ${selectedWing?.name ?: "wing"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (displayedRecords.isEmpty() && attendanceSearchQuery.isNotBlank()) {
+                item(key = "attendance_search_empty_result") {
+                    GlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(20.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "No student found matching \"$attendanceSearchQuery\"",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = { attendanceSearchQuery = "" }) {
+                                Text("Clear Search")
+                            }
+                        }
+                    }
+                }
+            }
+
             val canEdit = isAdmin && session!!.session.state == "DRAFT"
 
             items(
-                records,
+                displayedRecords,
                 key = { it.recordId },
                 contentType = { "attendance_record_card" },
             ) { record ->

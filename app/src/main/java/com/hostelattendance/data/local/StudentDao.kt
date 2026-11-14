@@ -134,6 +134,12 @@ interface StudentDao {
 
     @Query("SELECT COUNT(*) FROM students")
     suspend fun getTotalStudentCount(): Int
+
+    @Query("DELETE FROM students WHERE studentId = :studentId")
+    suspend fun deleteById(studentId: String): Int
+
+    @Query("DELETE FROM students WHERE hostelId = :hostelId AND currentWingId = :wingId")
+    suspend fun deleteByWingId(hostelId: String, wingId: String): Int
 }
 
 data class StudentWithWingName(

@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Removed switch profile option from user session attendance tab\n• Enforced Gmail ID and Hosteller credential binding\n• Blocked mismatched logins with 'Do not Enter other\'s Credential' alert\n• Cloud and local verification preventing credential tampering"
-    const val DEFAULT_LATEST_VERSION_CODE = 35
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.23"
+    const val DEFAULT_RELEASE_NOTES = "• Added 'Remove Student data' in Registration page to permanently delete invalid residents from database and cloud\n• Added 'Remove Wing' in Registration page to permanently delete obsolete wings\n• Added real-time student search bar in Attendance tab for fast resident lookup and marking"
+    const val DEFAULT_LATEST_VERSION_CODE = 36
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.24"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

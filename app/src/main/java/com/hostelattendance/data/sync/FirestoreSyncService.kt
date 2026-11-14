@@ -116,6 +116,72 @@ object FirestoreSyncService {
     }
 
     /**
+     * Permanently delete a student entity from Cloud Firestore.
+     */
+    suspend fun deleteStudent(
+        hostelId: String,
+        studentId: String,
+        studentName: String? = null,
+        roomNumber: String? = null,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            val docId = safeDocId(studentId)
+            studentsCol(db, hostelId).document(docId).delete().await()
+            Log.d(TAG, "Successfully deleted student from Firestore: $studentId")
+
+            // Clean up hosteller credential binding if present
+            if (!studentName.isNullOrBlank() && !roomNumber.isNullOrBlank()) {
+                val hostellerKey = "${studentName.trim().lowercase()}__${roomNumber.trim().lowercase()}"
+                try {
+                    db.collection("hosteller_bindings").document(hostellerKey).delete().await()
+                } catch (_: Exception) {}
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete student '$studentId' from Firestore: ${e.message}")
+        }
+    }
+
+    /**
+     * Permanently delete a wing and its associated students/sessions from Cloud Firestore.
+     */
+    suspend fun deleteWing(
+        hostelId: String,
+        wingId: String,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            val docId = safeDocId(wingId)
+            wingsCol(db, hostelId).document(docId).delete().await()
+            Log.d(TAG, "Successfully deleted wing from Firestore: $wingId")
+
+            // Delete all students belonging to this wing
+            val studentsSnapshot = studentsCol(db, hostelId)
+                .whereEqualTo("currentWingId", wingId)
+                .get()
+                .await()
+            for (studentDoc in studentsSnapshot.documents) {
+                try {
+                    studentDoc.reference.delete().await()
+                } catch (_: Exception) {}
+            }
+
+            // Delete all sessions for this wing
+            val sessionsSnapshot = sessionsCol(db, hostelId)
+                .whereEqualTo("wingId", wingId)
+                .get()
+                .await()
+            for (sessionDoc in sessionsSnapshot.documents) {
+                try {
+                    sessionDoc.reference.delete().await()
+                } catch (_: Exception) {}
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete wing '$wingId' from Firestore: ${e.message}")
+        }
+    }
+
+    /**
      * Bulk synchronize master roster (wings and students) in safe batches.
      */
     suspend fun syncWingsAndStudents(
@@ -928,6 +994,14 @@ object FirestoreSyncService {
                         wingDao.insertWings(wings)
                     }
                 }
+                for (change in snapshot.documentChanges) {
+                    if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                        val removedId = change.document.id
+                        syncScope.launch(dbWriteDispatcher) {
+                            wingDao.deleteById(removedId)
+                        }
+                    }
+                }
             }
 
             val studentsReg = studentsCol(db, hostelId).addSnapshotListener { snapshot, error ->
@@ -956,6 +1030,14 @@ object FirestoreSyncService {
                     syncScope.launch(dbWriteDispatcher) {
                         students.chunked(250).forEach { chunk ->
                             studentDao.insertStudents(chunk)
+                        }
+                    }
+                }
+                for (change in snapshot.documentChanges) {
+                    if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                        val removedId = change.document.id
+                        syncScope.launch(dbWriteDispatcher) {
+                            studentDao.deleteById(removedId)
                         }
                     }
                 }

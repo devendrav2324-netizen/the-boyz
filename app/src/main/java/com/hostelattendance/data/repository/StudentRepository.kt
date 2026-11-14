@@ -29,6 +29,8 @@ interface StudentRepository {
         year: String?,
     )
     suspend fun setStudentActive(studentId: String, isActive: Boolean)
+    suspend fun deleteStudent(hostelId: String, studentId: String)
+    suspend fun deleteWing(hostelId: String, wingId: String)
     suspend fun commitExcelImport(
         hostelId: String,
         analysis: ExcelImportAnalysis,
@@ -223,6 +225,32 @@ class RoomStudentRepository(
         if (student != null) {
             FirestoreSyncService.syncStudent(student.hostelId, student)
         }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+    }
+
+    override suspend fun deleteStudent(hostelId: String, studentId: String) {
+        val student = studentDao.findById(studentId)
+        database.withTransaction {
+            studentDao.deleteById(studentId)
+            database.attendanceSessionDao().deleteAllRecordsForStudent(studentId)
+        }
+        FirestoreSyncService.deleteStudent(
+            hostelId = hostelId,
+            studentId = studentId,
+            studentName = student?.studentName,
+            roomNumber = student?.currentRoomNumber,
+        )
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+    }
+
+    override suspend fun deleteWing(hostelId: String, wingId: String) {
+        database.withTransaction {
+            studentDao.deleteByWingId(hostelId, wingId)
+            wingDao.deleteById(wingId)
+            database.attendanceSessionDao().deleteRecordsByWingId(hostelId, wingId)
+            database.attendanceSessionDao().deleteSessionsByWingId(hostelId, wingId)
+        }
+        FirestoreSyncService.deleteWing(hostelId, wingId)
         com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
     }
 
