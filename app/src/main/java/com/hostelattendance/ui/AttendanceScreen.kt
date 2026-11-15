@@ -237,6 +237,13 @@ private fun AttendanceScreen(
     }
     val activeStudentCount by activeStudentCountFlow.collectAsState(initial = 0)
 
+    val yesterdayString = remember(selectedDate) { selectedDate.minusDays(1).toString() }
+    val yesterdayRecords by repository.observeRecordsForDateRange(hostelId, yesterdayString, yesterdayString)
+        .collectAsState(initial = emptyList())
+    val yesterdayRecordMap = remember(yesterdayRecords) {
+        yesterdayRecords.associateBy { it.studentId }
+    }
+
     LaunchedEffect(allWings.isEmpty()) {
         if (allWings.isEmpty()) {
             com.hostelattendance.data.sync.FirestoreSyncService.restoreWingsAndStudentsFromFirestore(
@@ -781,6 +788,7 @@ private fun AttendanceScreen(
                     saved = !canEdit,
                     isAdmin = isAdmin,
                     isAttendanceMarker = activeMarkersMap.containsKey(record.studentId),
+                    previousStatus = yesterdayRecordMap[record.studentId]?.status,
                     onToggleAttendanceMarker = if (isAdmin) {
                         { markerStudentToToggle = record }
                     } else null,
@@ -1373,6 +1381,7 @@ private fun LazyItemScope.AttendanceRecordCard(
     saved: Boolean,
     isAdmin: Boolean = false,
     isAttendanceMarker: Boolean = false,
+    previousStatus: String? = null,
     onToggleAttendanceMarker: (() -> Unit)? = null,
     onStatusSelected: (AttendanceStatus) -> Unit,
 ) {
@@ -1522,6 +1531,36 @@ private fun LazyItemScope.AttendanceRecordCard(
                 }
             }
 
+            // Line indicating previous day's attendance status in small yellow coloured text
+            val prevText = when (previousStatus?.uppercase()) {
+                "PRESENT" -> "Previously present"
+                "ABSENT" -> "Previously absent"
+                "LEAVE" -> "Previously leave"
+                else -> "Previously unmarked"
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    text = "•",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFFFFD54F),
+                )
+                Text(
+                    text = prevText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFFFD54F),
+                    letterSpacing = 0.2.sp,
+                )
+            }
+
             // ROW 3: Classy Tick / Status Buttons (✓ Present, ✕ Absent, ⏱ Leave)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1604,6 +1643,22 @@ private fun LazyItemScope.AttendanceRecordCard(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                 color = if (selected) statusAccent else MaterialTheme.colorScheme.onSurface,
                             )
+                            if (status.name.equals(previousStatus, ignoreCase = true)) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0x35FFD54F),
+                                    border = BorderStroke(0.8.dp, Color(0x90FFD54F)),
+                                    modifier = Modifier.padding(start = 3.dp),
+                                ) {
+                                    Text(
+                                        text = "prev",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFFD54F),
+                                        modifier = Modifier.padding(horizontal = 2.5.dp, vertical = 0.5.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2023,6 +2078,8 @@ private fun UserIndividualAttendanceView(
                                     "hostelId" to hostelId,
                                     "studentId" to effectiveStudentId,
                                     "studentName" to effectiveStudentName,
+                                    "rollNumber" to (matchedStudent?.rollNumber ?: userRollNumber ?: ""),
+                                    "roomNumber" to (matchedStudent?.currentRoomNumber ?: userRoomNumber ?: ""),
                                     "localDate" to selectedDateString,
                                     "markedStatus" to currentStatus,
                                     "claimedStatus" to claimedStatus,

@@ -236,6 +236,28 @@ interface AttendanceSessionDao {
     @Query("SELECT * FROM attendance_records")
     suspend fun getAllRecords(): List<AttendanceRecordEntity>
 
+    @Query("""
+        UPDATE attendance_records
+        SET status = :status, updatedAtMillis = :updatedAtMillis, version = version + 1
+        WHERE studentId = :studentId AND localDate = :localDate
+    """)
+    suspend fun updateRecordStatusForStudentAndDate(
+        studentId: String,
+        localDate: String,
+        status: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query("""
+        SELECT * FROM attendance_records
+        WHERE studentId = :studentId AND localDate = :localDate
+        LIMIT 1
+    """)
+    suspend fun findRecordForStudentAndDate(
+        studentId: String,
+        localDate: String,
+    ): AttendanceRecordEntity?
+
     @Query("SELECT COUNT(*) FROM attendance_sessions")
     suspend fun getTotalSessionCount(): Int
 

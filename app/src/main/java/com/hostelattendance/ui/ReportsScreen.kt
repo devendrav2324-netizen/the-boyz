@@ -64,7 +64,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import com.hostelattendance.data.local.AttendanceDisputeItem
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -194,6 +196,17 @@ fun ReportsScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var isSuggestionTrayVisible by remember { mutableStateOf(false) }
     var selectedRecordForSideOption by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
+    var attendanceDisputes by remember { mutableStateOf<List<AttendanceDisputeItem>>(emptyList()) }
+    var disputeFilterTab by remember { mutableStateOf("PENDING") }
+
+    DisposableEffect(hostelId) {
+        val reg = com.hostelattendance.data.sync.FirestoreSyncService.listenToAttendanceDisputes(hostelId) { list ->
+            attendanceDisputes = list
+        }
+        onDispose {
+            reg?.remove()
+        }
+    }
     val scope = rememberCoroutineScope()
     var studentToEdit by remember { mutableStateOf<StudentEntity?>(null) }
 
@@ -835,321 +848,163 @@ fun ReportsScreen(
             }
         }
 
-        // Attendance Register List Header
-        item(key = "reports_list_header") {
-            Text(
-                text = "Records (${filteredRecords.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+        // =========================================================================
+        // REQUEST FOR WRONG ATTENDANCE SECTION (ADMIN SESSION)
+        // =========================================================================
+        item(key = "disputes_header") {
+            val pendingCount = attendanceDisputes.count { it.status == "PENDING" }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Request for Wrong Attendance",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    if (pendingCount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0x33FF5252),
+                            border = BorderStroke(1.dp, Color(0x88FF5252)),
+                        ) {
+                            Text(
+                                text = "$pendingCount pending",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF5252),
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
+
+                // Filter Pill: Pending vs All
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (disputeFilterTab == "PENDING") MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent,
+                        border = BorderStroke(1.dp, if (disputeFilterTab == "PENDING") MaterialTheme.colorScheme.primary else Color(0x25FFFFFF)),
+                        modifier = Modifier.clickable { disputeFilterTab = "PENDING" },
+                    ) {
+                        Text(
+                            text = "Pending",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (disputeFilterTab == "PENDING") FontWeight.Bold else FontWeight.Normal,
+                            color = if (disputeFilterTab == "PENDING") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (disputeFilterTab == "ALL") MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent,
+                        border = BorderStroke(1.dp, if (disputeFilterTab == "ALL") MaterialTheme.colorScheme.primary else Color(0x25FFFFFF)),
+                        modifier = Modifier.clickable { disputeFilterTab = "ALL" },
+                    ) {
+                        Text(
+                            text = "All (${attendanceDisputes.size})",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (disputeFilterTab == "ALL") FontWeight.Bold else FontWeight.Normal,
+                            color = if (disputeFilterTab == "ALL") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
         }
 
-        // Attendance Register List Items
-        if (filteredRecords.isEmpty()) {
-            item(key = "reports_empty") {
+        val displayedDisputes = if (disputeFilterTab == "PENDING") {
+            attendanceDisputes.filter { it.status == "PENDING" }
+        } else {
+            attendanceDisputes
+        }
+
+        if (displayedDisputes.isEmpty()) {
+            item(key = "disputes_empty") {
                 GlassPanel(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(24.dp),
                 ) {
-                    Text(
-                        text = "No saved attendance records found for this selection.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(text = "🛡️", fontSize = 28.sp)
+                        Text(
+                            text = if (disputeFilterTab == "PENDING") "No pending attendance correction requests" else "No attendance correction requests recorded",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "When hostellers report an incorrect attendance marking from their session, their request will appear here for admin review and one-tap correction.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
                 }
             }
         } else {
             items(
-                filteredRecords,
-                key = { it.recordId },
-                contentType = { "report_row" },
-            ) { record ->
-                AttendanceReportRow(
-                    record = record,
-                    modifier = Modifier.animateItem(),
-                    onLongClick = {
-                        selectedRecordForSideOption = record
+                items = displayedDisputes,
+                key = { it.disputeId },
+            ) { dispute ->
+                AttendanceDisputeCard(
+                    dispute = dispute,
+                    onResolve = { newStatus ->
+                        scope.launch {
+                            try {
+                                application.database.attendanceSessionDao().updateRecordStatusForStudentAndDate(
+                                    studentId = dispute.studentId,
+                                    localDate = dispute.localDate,
+                                    status = newStatus,
+                                    updatedAtMillis = System.currentTimeMillis(),
+                                )
+                                com.hostelattendance.data.sync.FirestoreSyncService.updateAttendanceStatusDirectly(
+                                    hostelId = hostelId,
+                                    studentId = dispute.studentId,
+                                    localDate = dispute.localDate,
+                                    newStatus = newStatus,
+                                )
+                                com.hostelattendance.data.sync.FirestoreSyncService.resolveDispute(
+                                    disputeId = dispute.disputeId,
+                                    newStatus = newStatus,
+                                )
+                                Toast.makeText(context, "Marked as $newStatus for ${dispute.studentName}", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error updating status: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onDismiss = {
+                        scope.launch {
+                            try {
+                                com.hostelattendance.data.sync.FirestoreSyncService.dismissDispute(dispute.disputeId)
+                                Toast.makeText(context, "Dispute request dismissed", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                 )
             }
         }
 
         item(key = "reports_bottom_spacer") {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-
-    AnimatedVisibility(
-        visible = selectedRecordForSideOption != null,
-        enter = fadeIn(tween(140)),
-        exit = fadeOut(tween(120)),
-    ) {
-        val targetRecord = selectedRecordForSideOption ?: return@AnimatedVisibility
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.58f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { selectedRecordForSideOption = null },
-                ),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            val backdrop = LocalGlobalGlassBackdrop.current
-            val density = androidx.compose.ui.platform.LocalDensity.current
-            val sidePanelShape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
-
-            val panelModifier = if (backdrop != null) {
-                Modifier
-                    .fillMaxHeight()
-                    .widthIn(min = 280.dp, max = 340.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .liquidGlassEffect(
-                        backdrop = backdrop,
-                        density = density,
-                        cornerRadius = 28.dp,
-                        blurRadius = 18.dp,
-                        refractionHeightPx = 18f,
-                        refractionAmountPx = 24f,
-                        surfaceColor = Color(0x401E1A29),
-                        specular = com.styropyr0.prismal.specular.PrismalSpecular(
-                            width = 1.dp,
-                            alpha = 0.85f,
-                            style = com.styropyr0.prismal.specular.PrismalSpecularStyle.Ambient,
-                        ),
-                        depthShadow = com.styropyr0.prismal.depth.PrismalDepthShadow(
-                            radius = 28.dp,
-                            color = Color.Black.copy(alpha = 0.50f),
-                        ),
-                    )
-                    .padding(20.dp)
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-            } else {
-                Modifier
-                    .fillMaxHeight()
-                    .widthIn(min = 280.dp, max = 340.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .shadow(
-                        elevation = 28.dp,
-                        shape = sidePanelShape,
-                        ambientColor = Color.Black.copy(alpha = 0.65f),
-                        spotColor = Color.Black.copy(alpha = 0.85f),
-                    )
-                    .clip(sidePanelShape)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xF02B2636),
-                                Color(0xF51E1A27),
-                                Color(0xF815121D),
-                            ),
-                        ),
-                    )
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0x99FFFFFF),
-                                Color(0x30FFFFFF),
-                                Color(0x0CFFFFFF),
-                            ),
-                        ),
-                        shape = sidePanelShape,
-                    )
-                    .padding(20.dp)
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-            }
-
-            Box(
-                modifier = panelModifier,
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "Student Options",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0x25FFFFFF),
-                                modifier = Modifier.clickable { selectedRecordForSideOption = null },
-                            ) {
-                                Text(
-                                    text = "✕",
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color(0x20FFFFFF),
-                            border = BorderStroke(1.dp, Color(0x28FFFFFF)),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = targetRecord.studentNameSnapshot,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                )
-                                Text(
-                                    text = "#" + targetRecord.rollNumberSnapshot + " · Room " + targetRecord.roomNumberSnapshot,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    text = "Wing: " + targetRecord.wingNameSnapshot,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-
-                        val studentOptInteraction = rememberMotionInteractionSource()
-                        Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .pressFeedback(studentOptInteraction)
-                                .clickable(
-                                    interactionSource = studentOptInteraction,
-                                    indication = null,
-                                ) {
-                                    selectedScopeName = ReportScope.STUDENT.name
-                                    searchQuery = targetRecord.rollNumberSnapshot
-                                    selectedRecordForSideOption = null
-                                },
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = "check this student",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                )
-                                Text(
-                                    text = "Filter report for this student only",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-
-                        val wingOptInteraction = rememberMotionInteractionSource()
-                        Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .pressFeedback(wingOptInteraction)
-                                .clickable(
-                                    interactionSource = wingOptInteraction,
-                                    indication = null,
-                                ) {
-                                    selectedScopeName = ReportScope.WING.name
-                                    selectedWingId = targetRecord.wingIdSnapshot
-                                    searchQuery = ""
-                                    selectedRecordForSideOption = null
-                                },
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = "check his wing",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                )
-                                Text(
-                                    text = "Filter report to " + targetRecord.wingNameSnapshot,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-
-                        if (isAdmin) {
-                            val editOptInteraction = rememberMotionInteractionSource()
-                            Surface(
-                                shape = RoundedCornerShape(18.dp),
-                                color = Color(0x334CAF50),
-                                border = BorderStroke(1.dp, Color(0x664CAF50)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .pressFeedback(editOptInteraction)
-                                    .clickable(
-                                        interactionSource = editOptInteraction,
-                                        indication = null,
-                                    ) {
-                                        scope.launch {
-                                            val student = application.database.studentDao().findById(targetRecord.studentId)
-                                            studentToEdit = student
-                                            selectedRecordForSideOption = null
-                                        }
-                                    },
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Text(
-                                        text = "Edit student details",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF81C784),
-                                    )
-                                    Text(
-                                        text = "Correct name, room, wing, branch, year or status",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = { selectedRecordForSideOption = null },
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color(0x35FFFFFF)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                    ) {
-                        Text("Close", color = Color.White)
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(28.dp))
         }
     }
 
@@ -1849,6 +1704,310 @@ private fun UserReportStatCard(
                 fontSize = 11.sp,
                 color = Color.White.copy(alpha = 0.5f),
             )
+        }
+    }
+}
+
+
+@Composable
+private fun AttendanceDisputeCard(
+    dispute: AttendanceDisputeItem,
+    onResolve: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xF0201C2B),
+        border = BorderStroke(1.dp, Color(0x35FFFFFF)),
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // Header Row: Student Name + Date Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = dispute.studentName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp),
+                    ) {
+                        if (dispute.roomNumber.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            ) {
+                                Text(
+                                    text = "ROOM ${dispute.roomNumber}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                        if (dispute.rollNumber.isNotBlank()) {
+                            Text(
+                                text = "Roll #${dispute.rollNumber}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0x22FFFFFF),
+                    border = BorderStroke(0.6.dp, Color(0x30FFFFFF)),
+                ) {
+                    Text(
+                        text = "📅 ${dispute.localDate}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+            }
+
+            // Marking Comparison Row: Marked vs Claimed
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x25000000))
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Marked:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val markedColor = when (dispute.markedStatus.uppercase()) {
+                        "PRESENT" -> Color(0xFF4CAF50)
+                        "ABSENT" -> Color(0xFFFF5252)
+                        "LEAVE" -> Color(0xFFFFA000)
+                        else -> Color(0xFF9E9E9E)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = markedColor.copy(alpha = 0.22f),
+                        border = BorderStroke(0.8.dp, markedColor),
+                    ) {
+                        Text(
+                            text = dispute.markedStatus,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = markedColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp),
+                        )
+                    }
+                }
+
+                Text(
+                    text = "➔",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Claimed:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val claimedColor = when (dispute.claimedStatus.uppercase()) {
+                        "PRESENT" -> Color(0xFF4CAF50)
+                        "ABSENT" -> Color(0xFFFF5252)
+                        "LEAVE" -> Color(0xFFFFA000)
+                        else -> Color(0xFF29B6F6)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = claimedColor.copy(alpha = 0.22f),
+                        border = BorderStroke(0.8.dp, claimedColor),
+                    ) {
+                        Text(
+                            text = dispute.claimedStatus,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = claimedColor,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp),
+                        )
+                    }
+                }
+            }
+
+            // Reason quote if present
+            if (dispute.reason.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0x18FFFFFF),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "\"${dispute.reason}\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+
+            // Action / Resolution Row
+            if (dispute.status == "PENDING") {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "Change Marking:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        // Mark Present
+                        Button(
+                            onClick = { onResolve("PRESENT") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0x354CAF50),
+                                contentColor = Color(0xFF81C784),
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFF4CAF50)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp),
+                        ) {
+                            Text(
+                                text = "✓ Present",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+                        // Mark Absent
+                        Button(
+                            onClick = { onResolve("ABSENT") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0x35FF5252),
+                                contentColor = Color(0xFFFF8A80),
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFF5252)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp),
+                        ) {
+                            Text(
+                                text = "✕ Absent",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+                        // Mark Leave
+                        Button(
+                            onClick = { onResolve("LEAVE") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0x35FFA000),
+                                contentColor = Color(0xFFFFD54F),
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFFA000)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp),
+                        ) {
+                            Text(
+                                text = "⏱ Leave",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+                        // Dismiss / Reject
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(0.8.dp, Color(0x40FFFFFF)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.height(38.dp),
+                        ) {
+                            Text(
+                                text = "Dismiss",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            } else if (dispute.status == "RESOLVED") {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0x224CAF50),
+                    border = BorderStroke(0.8.dp, Color(0x664CAF50)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "✓ Resolved by Admin as ${dispute.resolvedStatus ?: "CORRECTED"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF81C784),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0x229E9E9E),
+                    border = BorderStroke(0.8.dp, Color(0x449E9E9E)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "✕ Request Dismissed",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFB0BEC5),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
     }
 }

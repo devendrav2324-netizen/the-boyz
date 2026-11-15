@@ -328,18 +328,21 @@ class AttendanceReportPdfGenerator {
             // Header titles
             val wingPart = if (!wingName.isNullOrBlank()) "   |   Wing: $wingName" else ""
             val filterPart = if (!filterDescription.isNullOrBlank()) "   |   Filter: $filterDescription" else ""
-            val singleDayStat = if (isSingleDay && totalStudents > 0) {
-                val dayPresents = records.count { it.status == "PRESENT" && it.localDate == dates.first().toString() }
-                val dayRate = (dayPresents * 100) / totalStudents
-                "   |   Day Attendance: $dayRate% ($dayPresents/$totalStudents Present)"
+            val kpiHeaderSummary = if (isSingleDay) {
+                val p = dailyTotals.firstOrNull()?.present ?: 0
+                val a = dailyTotals.firstOrNull()?.absent ?: 0
+                val l = dailyTotals.firstOrNull()?.leave ?: 0
+                val u = dailyTotals.firstOrNull()?.unmarked ?: 0
+                "   |   Total Present: $p   |   Total Absent: $a   |   Total Leave: $l   |   Total Unmarked: $u"
             } else {
-                "   |   Summary: Total Present, Total Absent, Total Leave"
+                "   |   Range Totals -> Present: $totalPresentSum   |   Absent: $totalAbsentSum   |   Leave: $totalLeaveSum   |   Unmarked: $totalUnmarkedSum"
             }
+
             canvas.drawText("CGITR BOYS HOSTEL - ATTENDANCE REGISTER", marginLeft, currentY + 12f, titlePaint)
             currentY += 18f
 
             canvas.drawText(
-                "Date Range: $dateRangeTitle$singleDayStat$wingPart$filterPart   |   Residents: $totalStudents   |   Generated: $timestamp   |   Page $pageNumber",
+                "Date Range: $dateRangeTitle$kpiHeaderSummary$wingPart$filterPart   |   Residents: $totalStudents   |   Generated: $timestamp   |   Page $pageNumber",
                 marginLeft,
                 currentY + 6f,
                 subtitlePaint,
