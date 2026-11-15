@@ -343,7 +343,7 @@ fun HostelAttendanceApp() {
                             }
                             optimisticIndex = targetIndex
                             navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
+                                popUpTo("attendance") {
                                     saveState = true
                                 }
                                 launchSingleTop = true
@@ -475,6 +475,7 @@ fun HostelAttendanceApp() {
                             scope.launch {
                                 accountRepository.signOut()
                                 UserSessionManager.clearActiveSession(context, uid)
+                                com.hostelattendance.data.local.AppStateMemory.clearAll()
                                 hasEnteredHosteller = false
                                 sessionHostellerName = null
                                 sessionRoomNumber = null
@@ -507,6 +508,7 @@ fun HostelAttendanceApp() {
                             scope.launch {
                                 accountRepository.signOut()
                                 UserSessionManager.clearActiveSession(context, uid)
+                                com.hostelattendance.data.local.AppStateMemory.clearAll()
                                 hasEnteredHosteller = false
                                 sessionHostellerName = null
                                 sessionRoomNumber = null
@@ -609,6 +611,7 @@ fun HostelAttendanceApp() {
                             scope.launch {
                                 accountRepository.signOut()
                                 UserSessionManager.clearActiveSession(context, uid)
+                                com.hostelattendance.data.local.AppStateMemory.clearAll()
                                 hasEnteredHosteller = false
                                 sessionHostellerName = null
                                 sessionRoomNumber = null

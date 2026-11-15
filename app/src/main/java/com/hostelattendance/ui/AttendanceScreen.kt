@@ -84,6 +84,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import com.hostelattendance.data.local.AppStateMemory
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -213,8 +215,21 @@ private fun AttendanceScreen(
     val wings = remember(allWings, allowedWingIds) {
         if (allowedWingIds.isEmpty()) allWings else allWings.filter { it.wingId in allowedWingIds }
     }
-    var selectedWingId by rememberSaveable { mutableStateOf("") }
-    var selectedDateString by rememberSaveable { mutableStateOf(AttendanceRules.today().toString()) }
+    var selectedWingId by rememberSaveable {
+        mutableStateOf(AppStateMemory.AttendanceTab.selectedWingId.orEmpty())
+    }
+    var selectedDateString by rememberSaveable {
+        mutableStateOf(AppStateMemory.AttendanceTab.selectedDateString ?: AttendanceRules.today().toString())
+    }
+
+    LaunchedEffect(selectedWingId) {
+        if (selectedWingId.isNotBlank()) {
+            AppStateMemory.AttendanceTab.selectedWingId = selectedWingId
+        }
+    }
+    LaunchedEffect(selectedDateString) {
+        AppStateMemory.AttendanceTab.selectedDateString = selectedDateString
+    }
     val selectedDate = remember(selectedDateString) {
         try { LocalDate.parse(selectedDateString) } catch (_: Exception) { AttendanceRules.today() }
     }
@@ -262,8 +277,12 @@ private fun AttendanceScreen(
 
     LaunchedEffect(wings) {
         if (wings.isNotEmpty()) {
-            if (selectedWingId.isBlank() || wings.none { it.wingId == selectedWingId }) {
+            val savedWing = AppStateMemory.AttendanceTab.selectedWingId
+            if (!savedWing.isNullOrBlank() && wings.any { it.wingId == savedWing }) {
+                selectedWingId = savedWing
+            } else if (selectedWingId.isBlank() || wings.none { it.wingId == selectedWingId }) {
                 selectedWingId = wings.first().wingId
+                AppStateMemory.AttendanceTab.selectedWingId = selectedWingId
             }
         }
     }
@@ -373,7 +392,12 @@ private fun AttendanceScreen(
     }
     val totals = remember(records) { AttendanceRules.totals(records.map { it.status }) }
     val selectedWing = wings.firstOrNull { it.wingId == selectedWingId }
-    var attendanceSearchQuery by rememberSaveable { mutableStateOf("") }
+    var attendanceSearchQuery by rememberSaveable {
+        mutableStateOf(AppStateMemory.AttendanceTab.searchQuery)
+    }
+    LaunchedEffect(attendanceSearchQuery) {
+        AppStateMemory.AttendanceTab.searchQuery = attendanceSearchQuery
+    }
     val displayedRecords = remember(records, attendanceSearchQuery) {
         val q = attendanceSearchQuery.trim().lowercase()
         if (q.isBlank()) records
@@ -385,7 +409,39 @@ private fun AttendanceScreen(
             }
         }
     }
-    val listState = rememberLazyListState()
+
+    val initialScroll = remember(selectedWingId) {
+        AppStateMemory.AttendanceTab.getScrollPosition(selectedWingId)
+    }
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialScroll.first,
+        initialFirstVisibleItemScrollOffset = initialScroll.second,
+    )
+
+    // Restore scroll position when records finish loading for this wing
+    var hasRestoredScrollForWing by remember(selectedWingId) { mutableStateOf(false) }
+    LaunchedEffect(selectedWingId, records.isNotEmpty()) {
+        if (records.isNotEmpty() && !hasRestoredScrollForWing) {
+            val (savedIdx, savedOff) = AppStateMemory.AttendanceTab.getScrollPosition(selectedWingId)
+            if (savedIdx > 0 || savedOff > 0) {
+                try {
+                    listState.scrollToItem(savedIdx, savedOff)
+                } catch (_: Exception) {}
+            }
+            hasRestoredScrollForWing = true
+        }
+    }
+
+    // Persist scroll position in memory continuously as user scrolls
+    LaunchedEffect(listState, selectedWingId) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collect { (idx, off) ->
+            if (records.isNotEmpty() && selectedWingId.isNotBlank()) {
+                AppStateMemory.AttendanceTab.saveScrollPosition(selectedWingId, idx, off)
+            }
+        }
+    }
 
     LazyColumn(
         state = listState,

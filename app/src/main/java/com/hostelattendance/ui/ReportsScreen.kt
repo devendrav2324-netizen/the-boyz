@@ -186,18 +186,39 @@ fun ReportsScreen(
     }
     var isPrintingRange by remember { mutableStateOf(false) }
 
-    var selectedScopeName by rememberSaveable { mutableStateOf(ReportScope.HOSTEL.name) }
+    var selectedScopeName by rememberSaveable {
+        mutableStateOf(com.hostelattendance.data.local.AppStateMemory.ReportsTab.selectedScopeName ?: ReportScope.HOSTEL.name)
+    }
     val selectedScope = remember(selectedScopeName) {
         ReportScope.entries.find { it.name == selectedScopeName } ?: ReportScope.HOSTEL
     }
     val wings by repository.observeWings(hostelId).collectAsState(initial = emptyList())
-    var selectedWingId by rememberSaveable { mutableStateOf("") }
+    var selectedWingId by rememberSaveable {
+        mutableStateOf(com.hostelattendance.data.local.AppStateMemory.ReportsTab.selectedWingId.orEmpty())
+    }
     var wingDropdownExpanded by remember { mutableStateOf(false) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchQuery by rememberSaveable {
+        mutableStateOf(com.hostelattendance.data.local.AppStateMemory.ReportsTab.searchQuery)
+    }
     var isSuggestionTrayVisible by remember { mutableStateOf(false) }
     var selectedRecordForSideOption by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
     var attendanceDisputes by remember { mutableStateOf<List<AttendanceDisputeItem>>(emptyList()) }
-    var disputeFilterTab by remember { mutableStateOf("PENDING") }
+    var disputeFilterTab by remember {
+        mutableStateOf(com.hostelattendance.data.local.AppStateMemory.ReportsTab.disputeFilterTab)
+    }
+
+    LaunchedEffect(selectedScopeName) {
+        com.hostelattendance.data.local.AppStateMemory.ReportsTab.selectedScopeName = selectedScopeName
+    }
+    LaunchedEffect(selectedWingId) {
+        com.hostelattendance.data.local.AppStateMemory.ReportsTab.selectedWingId = selectedWingId
+    }
+    LaunchedEffect(searchQuery) {
+        com.hostelattendance.data.local.AppStateMemory.ReportsTab.searchQuery = searchQuery
+    }
+    LaunchedEffect(disputeFilterTab) {
+        com.hostelattendance.data.local.AppStateMemory.ReportsTab.disputeFilterTab = disputeFilterTab
+    }
 
     DisposableEffect(hostelId) {
         val reg = com.hostelattendance.data.sync.FirestoreSyncService.listenToAttendanceDisputes(hostelId) { list ->
