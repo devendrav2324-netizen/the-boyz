@@ -24,6 +24,7 @@ import java.time.LocalTime
 
 
 import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -104,6 +105,7 @@ import com.hostelattendance.domain.AttendanceRules
 import com.hostelattendance.domain.AttendanceStatus
 import com.hostelattendance.domain.AttendanceTotals
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -1833,6 +1835,52 @@ private fun UserIndividualAttendanceView(
     val studentName = matchedStudent?.studentName ?: userDisplayName?.takeIf { it.isNotBlank() } ?: "Devendra"
     val studentRoll = matchedStudent?.rollNumber ?: userRollNumber
 
+    val effectiveStudentId = remember(matchedStudent, userStudentId) {
+        matchedStudent?.studentId ?: userStudentId ?: ""
+    }
+    val effectiveStudentName = remember(matchedStudent, userDisplayName) {
+        matchedStudent?.studentName ?: userDisplayName?.takeIf { it.isNotBlank() } ?: "Student"
+    }
+    val effectiveRollNumber = remember(matchedStudent, userRollNumber) {
+        matchedStudent?.rollNumber ?: userRollNumber ?: ""
+    }
+    val effectiveRoomNumber = remember(matchedStudent, userRoomNumber) {
+        matchedStudent?.currentRoomNumber ?: userRoomNumber ?: ""
+    }
+
+    var studentDisputes by remember { mutableStateOf<List<com.hostelattendance.data.local.AttendanceDisputeItem>>(emptyList()) }
+    var isSubmittingDispute by remember { mutableStateOf(false) }
+
+    DisposableEffect(hostelId, effectiveStudentId) {
+        if (effectiveStudentId.isBlank()) return@DisposableEffect onDispose {}
+        val reg = com.hostelattendance.data.sync.FirestoreSyncService.listenToStudentDisputes(hostelId, effectiveStudentId) { list ->
+            studentDisputes = list
+        }
+        onDispose {
+            reg?.remove()
+        }
+    }
+
+    val disputeForDate = remember(studentDisputes, selectedDateString) {
+        studentDisputes.firstOrNull { it.localDate == selectedDateString }
+    }
+    val isRequestedForDate = disputeForDate != null && disputeForDate.status == "PENDING"
+    val isResolvedForDate = disputeForDate != null && disputeForDate.status == "RESOLVED"
+
+    // When dispute is resolved by admin, trigger sync to update local attendance record
+    LaunchedEffect(disputeForDate?.status) {
+        if (disputeForDate?.status == "RESOLVED") {
+            try {
+                com.hostelattendance.data.sync.FirestoreSyncService.restoreAttendanceForDateRange(
+                    hostelId = hostelId,
+                    startDate = selectedDateString,
+                    endDate = selectedDateString,
+                    sessionDao = application.database.attendanceSessionDao(),
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
     val userRecord = remember(rawRecords, matchedStudent, userDisplayName, userStudentId, userRollNumber) {
         val sId = matchedStudent?.studentId ?: userStudentId
         val sName = studentName
@@ -1848,7 +1896,11 @@ private fun UserIndividualAttendanceView(
         ).firstOrNull()
     }
 
-    val currentStatus = userRecord?.status ?: AttendanceStatus.NOT_MARKED.name
+    val currentStatus = if (isResolvedForDate && !disputeForDate?.resolvedStatus.isNullOrBlank()) {
+        disputeForDate!!.resolvedStatus!!
+    } else {
+        userRecord?.status ?: AttendanceStatus.NOT_MARKED.name
+    }
     val greeting = remember { UserSessionPrivacyRules.getGreetingForTime(LocalTime.now()) }
     val displayFirstName = remember(studentName) { UserSessionPrivacyRules.extractFirstName(studentName) }
     val formattedDate = remember(selectedDate) { UserSessionPrivacyRules.formatDisplayDate(selectedDate) }
@@ -2021,7 +2073,11 @@ private fun UserIndividualAttendanceView(
                 .border(
                     BorderStroke(
                         1.dp,
-                        Color(0x35818CF8)
+                        when {
+                            isResolvedForDate -> Color(0x604CAF50)
+                            isRequestedForDate -> Color(0x80FFA000)
+                            else -> Color(0x35818CF8)
+                        }
                     ),
                     RoundedCornerShape(22.dp)
                 )
@@ -2032,25 +2088,80 @@ private fun UserIndividualAttendanceView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Request for Wrong Attendance",
-                    fontSize = 15.sp,
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Request for Wrong Attendance",
+                        fontSize = 15.sp,
+                        color = Color.White.copy(alpha = 0.90f),
+                        fontWeight = FontWeight.Medium,
+                    )
+                    if (isRequestedForDate) {
+                        Text(
+                            text = "Pending review by admin • ${disputeForDate?.claimedStatus ?: "Correction requested"}",
+                            fontSize = 12.sp,
+                            color = Color(0xFFFFD54F),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    } else if (isResolvedForDate) {
+                        Text(
+                            text = "Corrected by admin as ${disputeForDate?.resolvedStatus ?: "Resolved"}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF81C784),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                }
+
+                val isButtonDisabled = isRequestedForDate || isResolvedForDate || isSubmittingDispute
                 Button(
-                    onClick = { showDisputeDialog = true },
+                    onClick = {
+                        if (!isButtonDisabled) {
+                            showDisputeDialog = true
+                        }
+                    },
+                    enabled = !isButtonDisabled,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0x356366F1),
-                        contentColor = Color.White,
+                        containerColor = when {
+                            isResolvedForDate -> Color(0x354CAF50)
+                            isRequestedForDate -> Color(0x35FFA000)
+                            else -> Color(0x356366F1)
+                        },
+                        contentColor = when {
+                            isResolvedForDate -> Color(0xFF81C784)
+                            isRequestedForDate -> Color(0xFFFFD54F)
+                            else -> Color.White
+                        },
+                        disabledContainerColor = when {
+                            isResolvedForDate -> Color(0x304CAF50)
+                            isRequestedForDate -> Color(0x30FFA000)
+                            else -> Color(0x20FFFFFF)
+                        },
+                        disabledContentColor = when {
+                            isResolvedForDate -> Color(0xFF81C784)
+                            isRequestedForDate -> Color(0xFFFFD54F)
+                            else -> Color.White.copy(alpha = 0.45f)
+                        },
                     ),
-                    border = BorderStroke(1.dp, Color(0x60818CF8)),
-                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 8.dp)
+                    border = BorderStroke(
+                        1.dp,
+                        when {
+                            isResolvedForDate -> Color(0x604CAF50)
+                            isRequestedForDate -> Color(0x80FFA000)
+                            else -> Color(0x60818CF8)
+                        }
+                    ),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Request",
+                        text = when {
+                            isSubmittingDispute -> "Sending..."
+                            isResolvedForDate -> "Resolved ✓"
+                            isRequestedForDate -> "Requested"
+                            else -> "Request"
+                        },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -2066,30 +2177,50 @@ private fun UserIndividualAttendanceView(
             onDismiss = { showDisputeDialog = false },
             onSubmit = { claimedStatus, reason ->
                 showDisputeDialog = false
-                val effectiveStudentId = matchedStudent?.studentId ?: userStudentId ?: "student_${System.currentTimeMillis()}"
-                val effectiveStudentName = matchedStudent?.studentName ?: userDisplayName ?: "Student"
-
+                isSubmittingDispute = true
                 scope.launch {
                     try {
-                        FirebaseFirestore.getInstance()
+                        val disputeMap = hashMapOf(
+                            "hostelId" to hostelId,
+                            "studentId" to effectiveStudentId,
+                            "studentName" to effectiveStudentName,
+                            "rollNumber" to effectiveRollNumber,
+                            "roomNumber" to effectiveRoomNumber,
+                            "localDate" to selectedDateString,
+                            "markedStatus" to currentStatus,
+                            "claimedStatus" to claimedStatus,
+                            "reason" to reason.trim(),
+                            "createdAtMillis" to System.currentTimeMillis(),
+                            "status" to "PENDING",
+                        )
+                        val docRef = FirebaseFirestore.getInstance()
                             .collection("attendance_disputes")
-                            .add(
-                                mapOf(
-                                    "hostelId" to hostelId,
-                                    "studentId" to effectiveStudentId,
-                                    "studentName" to effectiveStudentName,
-                                    "rollNumber" to (matchedStudent?.rollNumber ?: userRollNumber ?: ""),
-                                    "roomNumber" to (matchedStudent?.currentRoomNumber ?: userRoomNumber ?: ""),
-                                    "localDate" to selectedDateString,
-                                    "markedStatus" to currentStatus,
-                                    "claimedStatus" to claimedStatus,
-                                    "reason" to reason,
-                                    "createdAtMillis" to System.currentTimeMillis(),
-                                    "status" to "PENDING",
-                                )
+                            .add(disputeMap)
+                            .await()
+
+                        studentDisputes = listOf(
+                            com.hostelattendance.data.local.AttendanceDisputeItem(
+                                disputeId = docRef.id,
+                                hostelId = hostelId,
+                                studentId = effectiveStudentId,
+                                studentName = effectiveStudentName,
+                                rollNumber = effectiveRollNumber,
+                                roomNumber = effectiveRoomNumber,
+                                localDate = selectedDateString,
+                                markedStatus = currentStatus,
+                                claimedStatus = claimedStatus,
+                                reason = reason.trim(),
+                                createdAtMillis = System.currentTimeMillis(),
+                                status = "PENDING",
                             )
-                    } catch (_: Exception) {}
-                    showDisputeSuccessDialog = true
+                        ) + studentDisputes
+
+                        showDisputeSuccessDialog = true
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Could not submit request: ${e.message}", Toast.LENGTH_SHORT).show()
+                    } finally {
+                        isSubmittingDispute = false
+                    }
                 }
             }
         )

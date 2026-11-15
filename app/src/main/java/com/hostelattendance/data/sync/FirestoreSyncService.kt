@@ -43,9 +43,7 @@ object FirestoreSyncService {
 
     private val firestore: FirebaseFirestore?
         get() = try {
-            if (FirebaseAuth.getInstance().currentUser != null) {
-                FirebaseFirestore.getInstance()
-            } else null
+            FirebaseFirestore.getInstance()
         } catch (e: Exception) {
             Log.w(TAG, "FirebaseFirestore instance not available: ${e.message}")
             null
@@ -1218,6 +1216,60 @@ object FirestoreSyncService {
     }
 
     /**
+     * Real-time listener for attendance disputes submitted by a specific student.
+     */
+    fun listenToStudentDisputes(
+        hostelId: String,
+        studentId: String,
+        onUpdate: (List<com.hostelattendance.data.local.AttendanceDisputeItem>) -> Unit,
+    ): ListenerRegistration? {
+        val db = firestore ?: return null
+        return try {
+            db.collection("attendance_disputes")
+                .whereEqualTo("hostelId", hostelId)
+                .whereEqualTo("studentId", studentId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) return@addSnapshotListener
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        val disputeId = doc.id
+                        val sId = doc.getString("studentId") ?: return@mapNotNull null
+                        val sName = doc.getString("studentName") ?: "Student"
+                        val roll = doc.getString("rollNumber") ?: ""
+                        val room = doc.getString("roomNumber") ?: ""
+                        val date = doc.getString("localDate") ?: ""
+                        val marked = doc.getString("markedStatus") ?: "ABSENT"
+                        val claimed = doc.getString("claimedStatus") ?: "PRESENT"
+                        val reason = doc.getString("reason") ?: ""
+                        val created = doc.getLong("createdAtMillis") ?: 0L
+                        val status = doc.getString("status") ?: "PENDING"
+                        val resStatus = doc.getString("resolvedStatus")
+                        val resAt = doc.getLong("resolvedAtMillis")
+                        com.hostelattendance.data.local.AttendanceDisputeItem(
+                            disputeId = disputeId,
+                            hostelId = hostelId,
+                            studentId = sId,
+                            studentName = sName,
+                            rollNumber = roll,
+                            roomNumber = room,
+                            localDate = date,
+                            markedStatus = marked,
+                            claimedStatus = claimed,
+                            reason = reason,
+                            createdAtMillis = created,
+                            status = status,
+                            resolvedStatus = resStatus,
+                            resolvedAtMillis = resAt,
+                        )
+                    }.sortedByDescending { it.createdAtMillis }
+                    onUpdate(list)
+                }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting up student disputes realtime listener: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * Resolve a student attendance dispute as Admin and update Firestore.
      */
     suspend fun resolveDispute(
@@ -1244,12 +1296,18 @@ object FirestoreSyncService {
 
     /**
      * Updates an attendance record status directly in Firestore by studentId and localDate.
+     * Inserts the record if none existed in Firestore yet.
      */
     suspend fun updateAttendanceStatusDirectly(
         hostelId: String,
         studentId: String,
         localDate: String,
         newStatus: String,
+        studentName: String = "",
+        rollNumber: String = "",
+        roomNumber: String = "",
+        wingId: String = "",
+        wingName: String = "",
     ) = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext
         try {
@@ -1259,13 +1317,35 @@ object FirestoreSyncService {
                 .get()
                 .await()
             val now = System.currentTimeMillis()
-            for (doc in querySnapshot.documents) {
-                doc.reference.update(
-                    mapOf(
-                        "status" to newStatus,
-                        "updatedAtMillis" to now,
-                    )
-                ).await()
+            if (!querySnapshot.isEmpty) {
+                for (doc in querySnapshot.documents) {
+                    doc.reference.update(
+                        mapOf(
+                            "status" to newStatus,
+                            "updatedAtMillis" to now,
+                        )
+                    ).await()
+                }
+            } else {
+                val recordId = "rec_${studentId}_$localDate"
+                val recordData = mapOf(
+                    "recordId" to recordId,
+                    "hostelId" to hostelId,
+                    "sessionId" to "session_${wingId.ifBlank { "default" }}_$localDate",
+                    "studentId" to studentId,
+                    "studentNameSnapshot" to studentName,
+                    "rollNumberSnapshot" to rollNumber,
+                    "roomNumberSnapshot" to roomNumber,
+                    "wingIdSnapshot" to wingId,
+                    "wingNameSnapshot" to wingName,
+                    "localDate" to localDate,
+                    "status" to newStatus,
+                    "version" to 1,
+                    "updatedAtMillis" to now,
+                )
+                recordsCol(db, hostelId).document(safeDocId(recordId))
+                    .set(recordData, SetOptions.merge())
+                    .await()
             }
             Log.d(TAG, "Directly updated Firestore attendance status to $newStatus for student $studentId on $localDate")
         } catch (e: Exception) {

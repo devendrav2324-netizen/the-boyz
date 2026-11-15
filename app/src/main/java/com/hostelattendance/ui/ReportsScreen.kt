@@ -967,17 +967,47 @@ fun ReportsScreen(
                     onResolve = { newStatus ->
                         scope.launch {
                             try {
-                                application.database.attendanceSessionDao().updateRecordStatusForStudentAndDate(
+                                val now = System.currentTimeMillis()
+                                val affected = application.database.attendanceSessionDao().updateRecordStatusForStudentAndDate(
                                     studentId = dispute.studentId,
                                     localDate = dispute.localDate,
                                     status = newStatus,
-                                    updatedAtMillis = System.currentTimeMillis(),
+                                    updatedAtMillis = now,
                                 )
+                                val student = application.database.studentDao().findById(dispute.studentId)
+                                val wing = if (!student?.currentWingId.isNullOrBlank()) {
+                                    application.database.wingDao().findActiveWing(hostelId, student!!.currentWingId)
+                                } else null
+                                if (affected == 0) {
+                                    val recordId = "rec_${dispute.studentId}_${dispute.localDate}"
+                                    val newRecord = AttendanceRecordEntity(
+                                        recordId = recordId,
+                                        hostelId = hostelId,
+                                        studentId = dispute.studentId,
+                                        rollNumberSnapshot = student?.rollNumber ?: dispute.rollNumber,
+                                        studentNameSnapshot = student?.studentName ?: dispute.studentName,
+                                        localDate = dispute.localDate,
+                                        status = newStatus,
+                                        wingIdSnapshot = wing?.wingId ?: "",
+                                        wingNameSnapshot = wing?.name ?: "",
+                                        roomNumberSnapshot = student?.currentRoomNumber ?: dispute.roomNumber,
+                                        sessionId = "session_${wing?.wingId ?: "default"}_${dispute.localDate}",
+                                        version = 1L,
+                                        createdAtMillis = now,
+                                        updatedAtMillis = now,
+                                    )
+                                    application.database.attendanceSessionDao().insertRecords(listOf(newRecord))
+                                }
                                 com.hostelattendance.data.sync.FirestoreSyncService.updateAttendanceStatusDirectly(
                                     hostelId = hostelId,
                                     studentId = dispute.studentId,
                                     localDate = dispute.localDate,
                                     newStatus = newStatus,
+                                    studentName = student?.studentName ?: dispute.studentName,
+                                    rollNumber = student?.rollNumber ?: dispute.rollNumber,
+                                    roomNumber = student?.currentRoomNumber ?: dispute.roomNumber,
+                                    wingId = wing?.wingId ?: "",
+                                    wingName = wing?.name ?: "",
                                 )
                                 com.hostelattendance.data.sync.FirestoreSyncService.resolveDispute(
                                     disputeId = dispute.disputeId,
