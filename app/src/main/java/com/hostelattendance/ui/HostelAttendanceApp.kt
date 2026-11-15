@@ -317,6 +317,21 @@ fun HostelAttendanceApp() {
     }.coerceAtLeast(0)
 
     var optimisticIndex by rememberSaveable { mutableStateOf(0) }
+
+    var availableUpdateInfo by remember { mutableStateOf<com.hostelattendance.data.update.AppUpdateInfo?>(null) }
+    var showUpdateBanner by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showNavigation) {
+        if (showNavigation) {
+            try {
+                val result = com.hostelattendance.data.update.AppUpdateManager.checkForUpdates()
+                if (result is com.hostelattendance.data.update.AppUpdateResult.UpdateAvailable) {
+                    availableUpdateInfo = result.updateInfo
+                    showUpdateBanner = true
+                }
+            } catch (_: Exception) {}
+        }
+    }
     LaunchedEffect(destinationIndex) {
         optimisticIndex = destinationIndex
     }
@@ -640,6 +655,23 @@ fun HostelAttendanceApp() {
                 },
                 onDismiss = {
                     showExitDialog = false
+                },
+            )
+        }
+
+        if (showUpdateBanner && availableUpdateInfo != null) {
+            FloatingUpdateBanner(
+                updateInfo = availableUpdateInfo!!,
+                onUpdateClick = {
+                    navController.navigate("settings") {
+                        popUpTo("attendance") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                    showUpdateBanner = false
+                },
+                onDismiss = {
+                    showUpdateBanner = false
                 },
             )
         }

@@ -385,6 +385,25 @@ object UserSessionManager {
         return null
     }
 
+    fun saveIdCardPhotoBitmap(context: Context, uid: String, bitmap: android.graphics.Bitmap): String? {
+        if (uid.isBlank()) return null
+        return try {
+            val dir = java.io.File(context.filesDir, "id_cards")
+            if (!dir.exists()) dir.mkdirs()
+            val targetFile = java.io.File(dir, "photo_${uid}.jpg")
+
+            java.io.FileOutputStream(targetFile).use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
+            }
+
+            val savedPath = targetFile.absolutePath
+            getPrefs(context).edit().putString(KEY_ID_CARD_PHOTO_PATH + uid, savedPath).apply()
+            savedPath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun saveIdCardPhotoFromUri(context: Context, uid: String, uri: android.net.Uri): String? {
         if (uid.isBlank()) return null
         return try {
