@@ -1393,7 +1393,8 @@ private fun LazyItemScope.AttendanceRecordCard(
             )
             .padding(14.dp),
     ) {
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // ROW 1: Avatar, Student Name, and Marker Button at top-right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1416,59 +1417,90 @@ private fun LazyItemScope.AttendanceRecordCard(
                 }
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(activeStatusAccent.copy(alpha = 0.20f))
-                        .border(1.dp, activeStatusAccent.copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
+                        .border(1.2.dp, activeStatusAccent.copy(alpha = 0.65f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = initials,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                     )
                 }
 
-                Column(modifier = Modifier.weight(1f)) {
+                // Student Name & Classy Metadata
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text(
+                        text = record.studentNameSnapshot,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+
+                    // ROW 2: Classy Metadata Row — Room Number Capsule and Roll Number
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(
-                            text = record.studentNameSnapshot,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.SemiBold,
-                        )
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0x22FFFFFF),
-                            border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+                            shape = RoundedCornerShape(7.dp),
+                            color = Color(0x2238BDF8),
+                            border = BorderStroke(1.dp, Color(0x4538BDF8)),
                         ) {
-                            Text(
-                                text = "Rm ${record.roomNumberSnapshot}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = "ROOM",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 9.sp,
+                                    color = Color(0xFF7DD3FC),
+                                )
+                                Text(
+                                    text = record.roomNumberSnapshot.ifBlank { "—" },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = Color.White,
+                                )
+                            }
                         }
+
+                        Text(
+                            text = "•",
+                            color = Color(0x60FFFFFF),
+                            fontSize = 11.sp,
+                        )
+
+                        Text(
+                            text = "Roll #${record.rollNumberSnapshot}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
                     }
-                    Text(
-                        text = "Roll #${record.rollNumberSnapshot}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
 
+                // Marker Button anchored in the top-right corner
                 if (isAdmin && onToggleAttendanceMarker != null) {
                     val isCurrentMarker = isAttendanceMarker
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = if (isCurrentMarker) Color(0x3500E5FF) else Color(0x18FFFFFF),
                         border = BorderStroke(
-                            1.dp,
-                            if (isCurrentMarker) Color(0x9000E5FF) else Color(0x35FFFFFF),
+                            1.2.dp,
+                            if (isCurrentMarker) Color(0x9500E5FF) else Color(0x35FFFFFF),
                         ),
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
@@ -1477,7 +1509,7 @@ private fun LazyItemScope.AttendanceRecordCard(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                         ) {
                             Text(
                                 text = if (isCurrentMarker) "✦ Marker" else "+ Marker",
@@ -1490,10 +1522,9 @@ private fun LazyItemScope.AttendanceRecordCard(
                 }
             }
 
+            // ROW 3: Classy Tick / Status Buttons (✓ Present, ✕ Absent, ⏱ Leave)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 markableStatuses.forEach { status ->
@@ -1504,6 +1535,12 @@ private fun LazyItemScope.AttendanceRecordCard(
                         AttendanceStatus.ABSENT -> Color(0xFFEF5350)
                         AttendanceStatus.LEAVE -> Color(0xFFFFB74D)
                         AttendanceStatus.NOT_MARKED -> MaterialTheme.colorScheme.primary
+                    }
+                    val statusSymbol = when (status) {
+                        AttendanceStatus.PRESENT -> "✓ "
+                        AttendanceStatus.ABSENT -> "✕ "
+                        AttendanceStatus.LEAVE -> "⏱ "
+                        AttendanceStatus.NOT_MARKED -> ""
                     }
                     val backgroundColor by animateColorAsState(
                         targetValue = if (selected) {
@@ -1535,7 +1572,7 @@ private fun LazyItemScope.AttendanceRecordCard(
                         border = BorderStroke(if (selected) 2.dp else 1.25.dp, borderColor),
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 46.dp)
                             .graphicsLayer {
                                 scaleX = scale
                                 scaleY = scale
@@ -1550,13 +1587,24 @@ private fun LazyItemScope.AttendanceRecordCard(
                             containerColor = backgroundColor,
                         ),
                     ) {
-                        Text(
-                            text = status.shortLabel,
-                            maxLines = 1,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) statusAccent else MaterialTheme.colorScheme.onSurface,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = statusSymbol,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selected) statusAccent else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = status.shortLabel,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) statusAccent else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
             }

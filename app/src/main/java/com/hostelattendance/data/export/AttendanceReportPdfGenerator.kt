@@ -212,6 +212,58 @@ class AttendanceReportPdfGenerator {
             style = Paint.Style.STROKE
         }
 
+        val kpiBoxBgPaint = Paint().apply {
+            color = Color.rgb(241, 245, 249)
+            style = Paint.Style.FILL
+        }
+
+        val kpiBoxBorderPaint = Paint().apply {
+            color = Color.rgb(203, 213, 225)
+            strokeWidth = 0.8f
+            style = Paint.Style.STROKE
+        }
+
+        val kpiLabelPaint = Paint().apply {
+            color = Color.rgb(15, 23, 42)
+            textSize = 7.8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val kpiPresentPaint = Paint().apply {
+            color = Color.rgb(22, 101, 52)
+            textSize = 7.8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val kpiAbsentPaint = Paint().apply {
+            color = Color.rgb(185, 28, 28)
+            textSize = 7.8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val kpiLeavePaint = Paint().apply {
+            color = Color.rgb(180, 83, 9)
+            textSize = 7.8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val kpiUnmarkedPaint = Paint().apply {
+            color = Color.rgb(71, 85, 105)
+            textSize = 7.8f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val kpiDividerPaint = Paint().apply {
+            color = Color.rgb(226, 232, 240)
+            strokeWidth = 0.6f
+            style = Paint.Style.STROKE
+        }
+
         val headerRowHeight = 24f
         val dataRowHeight = 18f
 
@@ -221,6 +273,50 @@ class AttendanceReportPdfGenerator {
         val totalStudents = sortedStudents.size
         val timestamp = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date())
         val dateRangeTitle = "${startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} to ${clampedEnd.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} (${dates.size} Days)"
+
+        // Pre-compute daily totals for hostel top headings (Total Present, Absent, Leave, Unmarked)
+        data class DayTotals(
+            val date: LocalDate,
+            val present: Int,
+            val absent: Int,
+            val leave: Int,
+            val unmarked: Int,
+        )
+
+        val dailyTotals = dates.map { date ->
+            val dateKey = date.toString()
+            var p = 0
+            var a = 0
+            var l = 0
+            for (student in sortedStudents) {
+                val record = if (isSingleStudentReport) {
+                    dateMap[dateKey]
+                        ?: recordMap[Pair(student.studentId, dateKey)]
+                        ?: (if (student.rollNumber != "—" && student.rollNumber != "N/A") rollMap[Pair(student.rollNumber, dateKey)] else null)
+                } else {
+                    recordMap[Pair(student.studentId, dateKey)]
+                        ?: (if (student.rollNumber != "—" && student.rollNumber != "N/A") rollMap[Pair(student.rollNumber, dateKey)] else null)
+                }
+                when (record?.status) {
+                    "PRESENT" -> p++
+                    "ABSENT" -> a++
+                    "LEAVE" -> l++
+                }
+            }
+            val u = (totalStudents - p - a - l).coerceAtLeast(0)
+            DayTotals(
+                date = date,
+                present = p,
+                absent = a,
+                leave = l,
+                unmarked = u,
+            )
+        }
+
+        val totalPresentSum = dailyTotals.sumOf { it.present }
+        val totalAbsentSum = dailyTotals.sumOf { it.absent }
+        val totalLeaveSum = dailyTotals.sumOf { it.leave }
+        val totalUnmarkedSum = dailyTotals.sumOf { it.unmarked }
 
         while (studentIndex < totalStudents || totalStudents == 0) {
             val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
@@ -248,7 +344,92 @@ class AttendanceReportPdfGenerator {
                 currentY + 6f,
                 subtitlePaint,
             )
-            currentY += 16f
+            currentY += 15f
+
+            // Top Headings Summary Section (Total Present, Absent, Leave, Unmarked)
+            // If date range is selected, heading size expands dynamically to show breakdown for each day
+            if (dates.size == 1 && dailyTotals.isNotEmpty()) {
+                val dt = dailyTotals.first()
+                val kpiCardHeight = 22f
+                canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBgPaint)
+                canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBorderPaint)
+
+                val textY = currentY + 14.5f
+                var curX = marginLeft + 10f
+
+                canvas.drawText("DATE: ${dt.date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}", curX, textY, kpiLabelPaint)
+                curX += 95f
+                canvas.drawText("TOTAL RESIDENTS: $totalStudents", curX, textY, kpiLabelPaint)
+                curX += 120f
+                canvas.drawText("TOTAL PRESENT: ${dt.present}", curX, textY, kpiPresentPaint)
+                curX += 115f
+                canvas.drawText("TOTAL ABSENT: ${dt.absent}", curX, textY, kpiAbsentPaint)
+                curX += 110f
+                canvas.drawText("TOTAL LEAVE: ${dt.leave}", curX, textY, kpiLeavePaint)
+                curX += 105f
+                canvas.drawText("TOTAL UNMARKED: ${dt.unmarked}", curX, textY, kpiUnmarkedPaint)
+
+                currentY += kpiCardHeight + 7f
+            } else if (dates.size > 1 && dailyTotals.isNotEmpty()) {
+                val numRows = (dailyTotals.size + 1) / 2
+                val rowLineHeight = 13.5f
+                val headerBlockHeight = 18f
+                val kpiCardHeight = headerBlockHeight + (numRows * rowLineHeight) + 5f
+
+                canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBgPaint)
+                canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBorderPaint)
+
+                // Top overall summary line
+                val topTextY = currentY + 12.5f
+                var topX = marginLeft + 10f
+                canvas.drawText("HOSTEL RANGE TOTALS ($totalStudents Residents):", topX, topTextY, kpiLabelPaint)
+                topX += 190f
+                canvas.drawText("TOTAL PRESENT: $totalPresentSum", topX, topTextY, kpiPresentPaint)
+                topX += 130f
+                canvas.drawText("TOTAL ABSENT: $totalAbsentSum", topX, topTextY, kpiAbsentPaint)
+                topX += 125f
+                canvas.drawText("TOTAL LEAVE: $totalLeaveSum", topX, topTextY, kpiLeavePaint)
+                topX += 120f
+                canvas.drawText("TOTAL UNMARKED: $totalUnmarkedSum", topX, topTextY, kpiUnmarkedPaint)
+
+                canvas.drawLine(marginLeft, currentY + headerBlockHeight, marginLeft + contentWidth, currentY + headerBlockHeight, kpiDividerPaint)
+
+                // Multi-day breakdown (2 columns across landscape width)
+                var dayRowY = currentY + headerBlockHeight + 10.5f
+                val colWidth = contentWidth / 2f
+                for (row in 0 until numRows) {
+                    val i1 = row * 2
+                    val i2 = row * 2 + 1
+
+                    // Column 1
+                    if (i1 < dailyTotals.size) {
+                        val dt = dailyTotals[i1]
+                        val x1 = marginLeft + 10f
+                        val fullDateStr = dt.date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        canvas.drawText("• $fullDateStr :", x1, dayRowY, kpiLabelPaint)
+                        canvas.drawText("Present: ${dt.present}", x1 + 80f, dayRowY, kpiPresentPaint)
+                        canvas.drawText("Absent: ${dt.absent}", x1 + 150f, dayRowY, kpiAbsentPaint)
+                        canvas.drawText("Leave: ${dt.leave}", x1 + 215f, dayRowY, kpiLeavePaint)
+                        canvas.drawText("Unmarked: ${dt.unmarked}", x1 + 275f, dayRowY, kpiUnmarkedPaint)
+                    }
+
+                    // Column 2
+                    if (i2 < dailyTotals.size) {
+                        val dt = dailyTotals[i2]
+                        val x2 = marginLeft + colWidth + 10f
+                        val fullDateStr = dt.date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        canvas.drawText("• $fullDateStr :", x2, dayRowY, kpiLabelPaint)
+                        canvas.drawText("Present: ${dt.present}", x2 + 80f, dayRowY, kpiPresentPaint)
+                        canvas.drawText("Absent: ${dt.absent}", x2 + 150f, dayRowY, kpiAbsentPaint)
+                        canvas.drawText("Leave: ${dt.leave}", x2 + 215f, dayRowY, kpiLeavePaint)
+                        canvas.drawText("Unmarked: ${dt.unmarked}", x2 + 275f, dayRowY, kpiUnmarkedPaint)
+                    }
+
+                    dayRowY += rowLineHeight
+                }
+
+                currentY += kpiCardHeight + 7f
+            }
 
             // Draw Header Row
             canvas.drawRect(marginLeft, currentY, marginLeft + contentWidth, currentY + headerRowHeight, headerBgPaint)

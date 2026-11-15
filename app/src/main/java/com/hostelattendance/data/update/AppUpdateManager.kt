@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Delegated Attendance Marker: Admins can grant attendance marking permissions to any student in the list\n• Designated students can mark attendance for other students from their device\n• Strict privilege boundaries: Markers have attendance marking access only, with registration and admin controls protected"
-    const val DEFAULT_LATEST_VERSION_CODE = 38
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.26"
+    const val DEFAULT_RELEASE_NOTES = "• Report Export Top Headings: Added Total Present, Absent, Leave, and Unmarked overview for hostel residents\n• Dynamic Heading Expansion: Date range selection expands headings showing daily attendance breakdown for each day\n• Classy Student Card Redesign: Relocated Room Number to dedicated metadata row to fix shrinking/vertical bar bug, anchored Marker button to top-right, and added classy tick buttons"
+    const val DEFAULT_LATEST_VERSION_CODE = 39
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.27"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**
