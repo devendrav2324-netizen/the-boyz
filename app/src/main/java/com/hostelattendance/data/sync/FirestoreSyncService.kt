@@ -58,6 +58,7 @@ object FirestoreSyncService {
     private fun studentsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("students")
     private fun sessionsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_sessions")
     private fun recordsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_records")
+    private fun attendanceMarkersCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_markers")
 
     // =========================================================================
     // 1. ONLINE WRITE OPERATIONS (IMMEDIATE PUSH)
@@ -1049,6 +1050,117 @@ object FirestoreSyncService {
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error setting up roster realtime listener: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Synchronize an attendance marker grant or update to Cloud Firestore.
+     */
+    suspend fun syncAttendanceMarker(
+        hostelId: String,
+        marker: com.hostelattendance.data.local.AttendanceMarkerInfo,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            val data = mapOf(
+                "studentId" to marker.studentId,
+                "hostelId" to hostelId,
+                "rollNumber" to marker.rollNumber,
+                "studentName" to marker.studentName,
+                "roomNumber" to marker.roomNumber,
+                "isMarker" to marker.isMarker,
+                "grantedBy" to (marker.grantedBy ?: ""),
+                "grantedAtMillis" to marker.grantedAtMillis,
+                "updatedAtMillis" to System.currentTimeMillis(),
+            )
+            attendanceMarkersCol(db, hostelId).document(safeDocId(marker.studentId))
+                .set(data, SetOptions.merge())
+                .await()
+            Log.d(TAG, "Successfully synced attendance marker: ${marker.studentName}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to sync attendance marker '${marker.studentName}': ${e.message}")
+        }
+    }
+
+    /**
+     * Revoke attendance marker in Cloud Firestore.
+     */
+    suspend fun revokeAttendanceMarker(
+        hostelId: String,
+        studentId: String,
+    ) = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext
+        try {
+            attendanceMarkersCol(db, hostelId).document(safeDocId(studentId))
+                .delete()
+                .await()
+            Log.d(TAG, "Successfully revoked attendance marker doc: $studentId")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to revoke attendance marker doc '$studentId': ${e.message}")
+        }
+    }
+
+    /**
+     * Fetch all active attendance markers from Cloud Firestore.
+     */
+    suspend fun fetchAttendanceMarkers(
+        hostelId: String,
+    ): List<com.hostelattendance.data.local.AttendanceMarkerInfo> = withContext(Dispatchers.IO) {
+        val db = firestore ?: return@withContext emptyList()
+        try {
+            val snapshot = attendanceMarkersCol(db, hostelId).get().await()
+            snapshot.documents.mapNotNull { doc ->
+                val sId = doc.getString("studentId") ?: doc.id
+                val isMarker = doc.getBoolean("isMarker") ?: true
+                if (!isMarker) return@mapNotNull null
+                com.hostelattendance.data.local.AttendanceMarkerInfo(
+                    studentId = sId,
+                    hostelId = doc.getString("hostelId") ?: hostelId,
+                    rollNumber = doc.getString("rollNumber") ?: "",
+                    studentName = doc.getString("studentName") ?: "",
+                    roomNumber = doc.getString("roomNumber") ?: "",
+                    isMarker = true,
+                    grantedBy = doc.getString("grantedBy"),
+                    grantedAtMillis = doc.getLong("grantedAtMillis") ?: 0L,
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch attendance markers: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Real-time listener for attendance markers.
+     */
+    fun listenToAttendanceMarkers(
+        hostelId: String,
+        onUpdate: (List<com.hostelattendance.data.local.AttendanceMarkerInfo>) -> Unit,
+    ): ListenerRegistration? {
+        val db = firestore ?: return null
+        return try {
+            attendanceMarkersCol(db, hostelId).addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                val markers = snapshot.documents.mapNotNull { doc ->
+                    val sId = doc.getString("studentId") ?: doc.id
+                    val isMarker = doc.getBoolean("isMarker") ?: true
+                    if (!isMarker) return@mapNotNull null
+                    com.hostelattendance.data.local.AttendanceMarkerInfo(
+                        studentId = sId,
+                        hostelId = doc.getString("hostelId") ?: hostelId,
+                        rollNumber = doc.getString("rollNumber") ?: "",
+                        studentName = doc.getString("studentName") ?: "",
+                        roomNumber = doc.getString("roomNumber") ?: "",
+                        isMarker = true,
+                        grantedBy = doc.getString("grantedBy"),
+                        grantedAtMillis = doc.getLong("grantedAtMillis") ?: 0L,
+                    )
+                }
+                onUpdate(markers)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error setting up attendance markers realtime listener: ${e.message}")
             null
         }
     }

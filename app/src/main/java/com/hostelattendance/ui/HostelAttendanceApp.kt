@@ -173,6 +173,17 @@ fun HostelAttendanceApp() {
         mutableStateOf(UserSessionManager.hasSelectedHosteller(context, uid))
     }
 
+    val activeMarkers by com.hostelattendance.data.local.AttendanceMarkerManager.activeMarkers.collectAsState()
+    val isAttendanceMarker = remember(activeMarkers, sessionStudentId, sessionRollNumber, uid, isAdmin) {
+        !isAdmin && com.hostelattendance.data.local.AttendanceMarkerManager.isUserMarker(
+            context = context,
+            hostelId = activeHostelId,
+            studentId = sessionStudentId,
+            rollNumber = sessionRollNumber,
+            uid = uid,
+        )
+    }
+
     val destinations = remember(isAdmin) {
         if (isAdmin) {
             listOf(
@@ -195,6 +206,23 @@ fun HostelAttendanceApp() {
     val currentDestination = backStackEntry?.destination
     val showNavigation = destinations.any { destination ->
         currentDestination?.hierarchy?.any { it.route == destination.route } == true
+    }
+
+    LaunchedEffect(activeHostelId) {
+        com.hostelattendance.data.local.AttendanceMarkerManager.init(context, activeHostelId)
+        val remoteMarkers = com.hostelattendance.data.sync.FirestoreSyncService.fetchAttendanceMarkers(activeHostelId)
+        if (remoteMarkers.isNotEmpty()) {
+            com.hostelattendance.data.local.AttendanceMarkerManager.updateMarkersFromRemote(context, activeHostelId, remoteMarkers)
+        }
+    }
+
+    DisposableEffect(activeHostelId) {
+        val reg = com.hostelattendance.data.sync.FirestoreSyncService.listenToAttendanceMarkers(activeHostelId) { markers ->
+            com.hostelattendance.data.local.AttendanceMarkerManager.updateMarkersFromRemote(context, activeHostelId, markers)
+        }
+        onDispose {
+            reg?.remove()
+        }
     }
 
     LaunchedEffect(activeHostelId, approvedAccount?.uid) {
@@ -299,7 +327,7 @@ fun HostelAttendanceApp() {
             topBar = {
                 if (showNavigation) {
                     AppTopBar(
-                        role = approvedAccount?.role ?: "USER",
+                        role = if (isAdmin) "ADMIN" else if (isAttendanceMarker) "ATTENDANCE MARKER" else (approvedAccount?.role ?: "USER"),
                     )
                 }
             },
@@ -506,6 +534,7 @@ fun HostelAttendanceApp() {
                         hostelId = activeHostelId,
                         allowedWingIds = allowedWings,
                         isAdmin = isAdmin,
+                        isAttendanceMarker = isAttendanceMarker,
                         userDisplayName = sessionHostellerName,
                         userStudentId = sessionStudentId,
                         userRollNumber = sessionRollNumber,

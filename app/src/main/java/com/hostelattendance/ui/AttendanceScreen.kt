@@ -122,6 +122,7 @@ fun AttendanceScreen(
     hostelId: String = DEFAULT_HOSTEL_ID,
     allowedWingIds: Set<String> = emptySet(),
     isAdmin: Boolean = true,
+    isAttendanceMarker: Boolean = false,
     userDisplayName: String? = null,
     userStudentId: String? = null,
     userRollNumber: String? = null,
@@ -134,6 +135,7 @@ fun AttendanceScreen(
         hostelId = hostelId,
         allowedWingIds = allowedWingIds,
         isAdmin = isAdmin,
+        isAttendanceMarker = isAttendanceMarker,
         userDisplayName = userDisplayName,
         userStudentId = userStudentId,
         userRollNumber = userRollNumber,
@@ -148,6 +150,7 @@ private fun AttendanceScreen(
     hostelId: String,
     allowedWingIds: Set<String>,
     isAdmin: Boolean,
+    isAttendanceMarker: Boolean = false,
     userDisplayName: String?,
     userStudentId: String?,
     userRollNumber: String?,
@@ -155,15 +158,51 @@ private fun AttendanceScreen(
     onNavigateToRegistration: () -> Unit,
     repository: AttendanceRepository,
 ) {
-    if (!isAdmin) {
-        UserIndividualAttendanceView(
-            hostelId = hostelId,
-            userDisplayName = userDisplayName,
-            userStudentId = userStudentId,
-            userRollNumber = userRollNumber,
-            userRoomNumber = userRoomNumber,
-            repository = repository,
-        )
+    val canMarkAttendance = isAdmin || isAttendanceMarker
+    var showIndividualViewForMarker by rememberSaveable { mutableStateOf(false) }
+
+    if (!canMarkAttendance || (isAttendanceMarker && showIndividualViewForMarker)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (isAttendanceMarker && showIndividualViewForMarker) {
+                Surface(
+                    color = Color(0x301E1B4B),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0x40818CF8)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Viewing My Personal Attendance",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        TextButton(
+                            onClick = { showIndividualViewForMarker = false },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Text("Switch to Marking Mode ➜", color = Color(0xFF90CAF9), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+            UserIndividualAttendanceView(
+                hostelId = hostelId,
+                userDisplayName = userDisplayName,
+                userStudentId = userStudentId,
+                userRollNumber = userRollNumber,
+                userRoomNumber = userRoomNumber,
+                repository = repository,
+            )
+        }
         return
     }
     val context = LocalContext.current
@@ -189,6 +228,9 @@ private fun AttendanceScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var infoMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val activeMarkersMap by com.hostelattendance.data.local.AttendanceMarkerManager.activeMarkers.collectAsState()
+    var markerStudentToToggle by remember { mutableStateOf<AttendanceRecordEntity?>(null) }
+    var showManageMarkersDialog by remember { mutableStateOf(false) }
 
     val activeStudentCountFlow = remember(repository, hostelId, selectedWingId) {
         repository.observeActiveStudentCount(hostelId, selectedWingId)
@@ -444,6 +486,44 @@ private fun AttendanceScreen(
                         }
                     }
                 }
+                if (isAdmin) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x2200E5FF),
+                        border = BorderStroke(1.dp, Color(0x5000E5FF)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showManageMarkersDialog = true },
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text("✦", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Delegated Attendance Markers: ${activeMarkersMap.size} assigned",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFE0F7FA),
+                                )
+                            }
+                            Text(
+                                text = "Manage ➜",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF80DEEA),
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -559,6 +639,48 @@ private fun AttendanceScreen(
         }
 
         if (session != null) {
+            if (isAttendanceMarker && !isAdmin) {
+                item(key = "attendance_marker_banner") {
+                    GlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(14.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text("✦", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = "Attendance Marker Mode",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
+                                Text(
+                                    text = "Delegated by Admin to mark hostel attendance",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { showIndividualViewForMarker = true },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text("My Status", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            }
+
             item(key = "attendance_summary") {
                 AttendanceSummary(session = session!!, totals = totals)
             }
@@ -647,7 +769,7 @@ private fun AttendanceScreen(
                 }
             }
 
-            val canEdit = isAdmin && session!!.session.state == "DRAFT"
+            val canEdit = canMarkAttendance && session!!.session.state == "DRAFT"
 
             items(
                 displayedRecords,
@@ -657,11 +779,16 @@ private fun AttendanceScreen(
                 AttendanceRecordCard(
                     record = record,
                     saved = !canEdit,
+                    isAdmin = isAdmin,
+                    isAttendanceMarker = activeMarkersMap.containsKey(record.studentId),
+                    onToggleAttendanceMarker = if (isAdmin) {
+                        { markerStudentToToggle = record }
+                    } else null,
                     onStatusSelected = { status ->
                         if (canEdit) {
                             scope.launch {
                                 try {
-                                    repository.mark(session!!.session.sessionId, record.recordId, status, isAdmin)
+                                    repository.mark(session!!.session.sessionId, record.recordId, status, canMarkAttendance)
                                     errorMessage = null
                                 } catch (exception: Exception) {
                                     errorMessage = exception.message ?: "Could not save the attendance change locally."
@@ -960,7 +1087,7 @@ private fun AttendanceScreen(
                     try {
                         val sessionId = session?.session?.sessionId
                         if (sessionId != null) {
-                            repository.clearAllSelections(sessionId, isAdmin)
+                            repository.clearAllSelections(sessionId, canMarkAttendance)
                             infoMessage = "All attendance markings cleared."
                             android.widget.Toast.makeText(context, "All selections cleared", android.widget.Toast.LENGTH_SHORT).show()
                         }
@@ -1003,6 +1130,143 @@ private fun AttendanceScreen(
             dismissButton = {
                 TextButton(onClick = { showReopenConfirmation = false }) {
                     Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (markerStudentToToggle != null) {
+        val targetStudent = markerStudentToToggle!!
+        val isCurrentlyMarker = activeMarkersMap.containsKey(targetStudent.studentId)
+        AppleGlassDialog(
+            title = if (isCurrentlyMarker) "Revoke Attendance Marker" else "Grant Attendance Marking Access",
+            message = if (isCurrentlyMarker) {
+                "Revoke attendance marking access for ${targetStudent.studentNameSnapshot} (Roll #${targetStudent.rollNumberSnapshot}, Room ${targetStudent.roomNumberSnapshot})?\n\nThis student will return to regular student status."
+            } else {
+                "Grant attendance marking access to ${targetStudent.studentNameSnapshot} (Roll #${targetStudent.rollNumberSnapshot}, Room ${targetStudent.roomNumberSnapshot})?\n\nThis student will be able to mark attendance for other students from their device, but will only have permission for attendance marking (no registration, deletion, or admin settings)."
+            },
+            confirmText = if (isCurrentlyMarker) "Revoke Access" else "Grant Access",
+            dismissText = "Cancel",
+            isDestructive = isCurrentlyMarker,
+            onConfirm = {
+                val target = markerStudentToToggle
+                markerStudentToToggle = null
+                if (target != null) {
+                    scope.launch {
+                        if (isCurrentlyMarker) {
+                            com.hostelattendance.data.local.AttendanceMarkerManager.revokeMarkerLocal(
+                                context = context,
+                                hostelId = hostelId,
+                                studentId = target.studentId,
+                            )
+                            com.hostelattendance.data.sync.FirestoreSyncService.revokeAttendanceMarker(
+                                hostelId = hostelId,
+                                studentId = target.studentId,
+                            )
+                        } else {
+                            val info = com.hostelattendance.data.local.AttendanceMarkerInfo(
+                                studentId = target.studentId,
+                                hostelId = hostelId,
+                                rollNumber = target.rollNumberSnapshot,
+                                studentName = target.studentNameSnapshot,
+                                roomNumber = target.roomNumberSnapshot,
+                                isMarker = true,
+                                grantedBy = userDisplayName ?: "Admin",
+                            )
+                            com.hostelattendance.data.local.AttendanceMarkerManager.grantMarkerLocal(
+                                context = context,
+                                marker = info,
+                            )
+                            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceMarker(
+                                hostelId = hostelId,
+                                marker = info,
+                            )
+                        }
+                    }
+                }
+            },
+            onDismiss = { markerStudentToToggle = null },
+        )
+    }
+
+    if (showManageMarkersDialog) {
+        val markersList = activeMarkersMap.values.toList()
+        AlertDialog(
+            onDismissRequest = { showManageMarkersDialog = false },
+            title = {
+                Text("Delegated Attendance Markers", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                if (markersList.isEmpty()) {
+                    Text(
+                        text = "No students currently designated as attendance markers.\n\nYou can designate any student by tapping '+ Marker' on their student card in the attendance list.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "${markersList.size} students authorized to mark attendance:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(markersList, key = { it.studentId }) { marker ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0x18FFFFFF),
+                                    border = BorderStroke(1.dp, Color(0x28FFFFFF)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = marker.studentName,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                            Text(
+                                                text = "Roll #${marker.rollNumber} · Rm ${marker.roomNumber}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    com.hostelattendance.data.local.AttendanceMarkerManager.revokeMarkerLocal(
+                                                        context = context,
+                                                        hostelId = hostelId,
+                                                        studentId = marker.studentId,
+                                                    )
+                                                    com.hostelattendance.data.sync.FirestoreSyncService.revokeAttendanceMarker(
+                                                        hostelId = hostelId,
+                                                        studentId = marker.studentId,
+                                                    )
+                                                }
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF5252)),
+                                        ) {
+                                            Text("Revoke")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showManageMarkersDialog = false }) {
+                    Text("Done", fontWeight = FontWeight.Bold)
                 }
             },
         )
@@ -1107,6 +1371,9 @@ private fun AttendanceSummary(
 private fun LazyItemScope.AttendanceRecordCard(
     record: AttendanceRecordEntity,
     saved: Boolean,
+    isAdmin: Boolean = false,
+    isAttendanceMarker: Boolean = false,
+    onToggleAttendanceMarker: (() -> Unit)? = null,
     onStatusSelected: (AttendanceStatus) -> Unit,
 ) {
     val backdrop = LocalGlobalGlassBackdrop.current
@@ -1192,6 +1459,34 @@ private fun LazyItemScope.AttendanceRecordCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+
+                if (isAdmin && onToggleAttendanceMarker != null) {
+                    val isCurrentMarker = isAttendanceMarker
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCurrentMarker) Color(0x3500E5FF) else Color(0x18FFFFFF),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isCurrentMarker) Color(0x9000E5FF) else Color(0x35FFFFFF),
+                        ),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onToggleAttendanceMarker() },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = if (isCurrentMarker) "✦ Marker" else "+ Marker",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isCurrentMarker) Color(0xFF80DEEA) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 

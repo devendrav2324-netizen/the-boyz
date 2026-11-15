@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Added Hosteller ID Card page in user session styled with CGIT Boys Hostel layout\n• Dynamic name and room number display matching session credentials\n• Tap photo area to upload custom user photo with instant persistent storage"
-    const val DEFAULT_LATEST_VERSION_CODE = 37
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.25"
+    const val DEFAULT_RELEASE_NOTES = "• Delegated Attendance Marker: Admins can grant attendance marking permissions to any student in the list\n• Designated students can mark attendance for other students from their device\n• Strict privilege boundaries: Markers have attendance marking access only, with registration and admin controls protected"
+    const val DEFAULT_LATEST_VERSION_CODE = 38
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.26"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

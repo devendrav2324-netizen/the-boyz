@@ -123,8 +123,8 @@ object AttendanceRules {
 
     fun isFutureDate(localDate: LocalDate): Boolean = localDate.isAfter(today())
 
-    fun requireMarkingAllowed(localDate: LocalDate, isAdmin: Boolean, sessionState: String) {
-        require(isAdmin) { "Attendance marking is restricted to authorized administrators." }
+    fun requireMarkingAllowed(localDate: LocalDate, canMark: Boolean, sessionState: String) {
+        require(canMark) { "Attendance marking is restricted to authorized personnel." }
         require(sessionState == AttendanceSessionState.DRAFT.name) {
             "Attendance session is saved and locked. Click 'Reopen for administrator correction' before making changes."
         }

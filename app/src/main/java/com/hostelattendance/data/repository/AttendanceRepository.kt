@@ -292,7 +292,7 @@ class RoomAttendanceRepository(
         isAdmin: Boolean,
     ) {
         require(status in AttendanceStatus.entries) { "Invalid attendance status." }
-        require(isAdmin) { "Attendance marking is restricted to authorized administrators." }
+        require(isAdmin) { "Attendance marking is restricted to authorized administrators and delegated markers." }
 
         val sessionWithRecords = sessionDao.findSessionWithRecords(sessionId)
             ?: error("Attendance session was not found.")
@@ -423,7 +423,7 @@ class RoomAttendanceRepository(
         sessionId: String,
         isAdmin: Boolean,
     ) {
-        require(isAdmin) { "Attendance marking is restricted to authorized administrators." }
+        require(isAdmin) { "Attendance marking is restricted to authorized administrators and delegated markers." }
 
         val sessionWithRecords = sessionDao.findSessionWithRecords(sessionId)
             ?: error("Attendance session was not found.")
