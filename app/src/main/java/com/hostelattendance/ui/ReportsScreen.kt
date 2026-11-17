@@ -1031,6 +1031,7 @@ fun ReportsScreen(
                                     wingName = wing?.name ?: "",
                                 )
                                 com.hostelattendance.data.sync.FirestoreSyncService.resolveDispute(
+                                    hostelId = dispute.hostelId.ifBlank { hostelId },
                                     disputeId = dispute.disputeId,
                                     newStatus = newStatus,
                                 )
@@ -1043,7 +1044,10 @@ fun ReportsScreen(
                     onDismiss = {
                         scope.launch {
                             try {
-                                com.hostelattendance.data.sync.FirestoreSyncService.dismissDispute(dispute.disputeId)
+                                com.hostelattendance.data.sync.FirestoreSyncService.dismissDispute(
+                                    hostelId = dispute.hostelId.ifBlank { hostelId },
+                                    disputeId = dispute.disputeId,
+                                )
                                 Toast.makeText(context, "Dispute request dismissed", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()

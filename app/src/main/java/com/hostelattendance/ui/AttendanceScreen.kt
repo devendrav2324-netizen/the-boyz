@@ -2250,6 +2250,8 @@ private fun UserIndividualAttendanceView(
                             "status" to "PENDING",
                         )
                         val docRef = FirebaseFirestore.getInstance()
+                            .collection("hostels")
+                            .document(hostelId)
                             .collection("attendance_disputes")
                             .add(disputeMap)
                             .await()

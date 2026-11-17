@@ -57,6 +57,7 @@ object FirestoreSyncService {
     private fun sessionsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_sessions")
     private fun recordsCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_records")
     private fun attendanceMarkersCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId).collection("attendance_markers")
+    private fun attendanceDisputesCol(db: FirebaseFirestore, hostelId: String) = hostelDoc(db, hostelId.ifBlank { "cgitr-boys-hostel" }).collection("attendance_disputes")
 
     // =========================================================================
     // 1. ONLINE WRITE OPERATIONS (IMMEDIATE PUSH)
@@ -1172,8 +1173,7 @@ object FirestoreSyncService {
     ): ListenerRegistration? {
         val db = firestore ?: return null
         return try {
-            db.collection("attendance_disputes")
-                .whereEqualTo("hostelId", hostelId)
+            attendanceDisputesCol(db, hostelId)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null) return@addSnapshotListener
                     val list = snapshot.documents.mapNotNull { doc ->
@@ -1225,8 +1225,7 @@ object FirestoreSyncService {
     ): ListenerRegistration? {
         val db = firestore ?: return null
         return try {
-            db.collection("attendance_disputes")
-                .whereEqualTo("hostelId", hostelId)
+            attendanceDisputesCol(db, hostelId)
                 .whereEqualTo("studentId", studentId)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null) return@addSnapshotListener
@@ -1273,12 +1272,13 @@ object FirestoreSyncService {
      * Resolve a student attendance dispute as Admin and update Firestore.
      */
     suspend fun resolveDispute(
+        hostelId: String,
         disputeId: String,
         newStatus: String,
     ) = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext
         try {
-            db.collection("attendance_disputes").document(disputeId)
+            attendanceDisputesCol(db, hostelId).document(disputeId)
                 .set(
                     mapOf(
                         "status" to "RESOLVED",
@@ -1357,11 +1357,12 @@ object FirestoreSyncService {
      * Dismiss / Reject an attendance dispute as Admin.
      */
     suspend fun dismissDispute(
+        hostelId: String,
         disputeId: String,
     ) = withContext(Dispatchers.IO) {
         val db = firestore ?: return@withContext
         try {
-            db.collection("attendance_disputes").document(disputeId)
+            attendanceDisputesCol(db, hostelId).document(disputeId)
                 .set(
                     mapOf(
                         "status" to "REJECTED",

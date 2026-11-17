@@ -21,5 +21,17 @@ service cloud.firestore {
     match /app_updates/{docId} {
       allow read, write: if signedIn();
     }
+
+    match /attendance_disputes/{docId} {
+      allow read, write: if signedIn();
+    }
+
+    match /credential_bindings/{docId} {
+      allow read, write: if signedIn();
+    }
+
+    match /hosteller_bindings/{docId} {
+      allow read, write: if signedIn();
+    }
   }
 }
