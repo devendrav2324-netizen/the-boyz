@@ -100,6 +100,24 @@ interface AttendanceSessionDao {
 
     @Query(
         """
+        UPDATE attendance_records
+        SET status = :status, updatedAtMillis = :updatedAtMillis, version = version + 1
+        WHERE sessionId = :sessionId
+          AND EXISTS (
+            SELECT 1 FROM attendance_sessions
+            WHERE attendance_sessions.sessionId = :sessionId
+              AND attendance_sessions.state = 'DRAFT'
+          )
+        """,
+    )
+    suspend fun setAllSessionRecordsStatus(
+        sessionId: String,
+        status: String,
+        updatedAtMillis: Long,
+    ): Int
+
+    @Query(
+        """
         SELECT * FROM attendance_records
         WHERE hostelId = :hostelId AND localDate = :localDate
         """,

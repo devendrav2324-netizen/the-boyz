@@ -836,6 +836,151 @@ private fun AttendanceScreen(
 
             val canEdit = canMarkAttendance && session!!.session.state == "DRAFT"
 
+            if (canEdit && displayedRecords.isNotEmpty()) {
+                item(key = "attendance_select_all_bar") {
+                    GlassPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = if (attendanceSearchQuery.isBlank()) "Select All Students Directly:" else "Select All Filtered Students:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${displayedRecords.size} Residents",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                // 1. ALL PRESENT
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            try {
+                                                val sessionId = session?.session?.sessionId ?: return@launch
+                                                if (attendanceSearchQuery.isBlank()) {
+                                                    repository.markAll(sessionId, AttendanceStatus.PRESENT, canMarkAttendance)
+                                                    android.widget.Toast.makeText(context, "All ${records.size} students marked as Present", android.widget.Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    displayedRecords.forEach {
+                                                        repository.mark(sessionId, it.recordId, AttendanceStatus.PRESENT, canMarkAttendance)
+                                                    }
+                                                    android.widget.Toast.makeText(context, "Marked ${displayedRecords.size} students as Present", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.message ?: "Failed to mark students as Present."
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0x304CAF50),
+                                        contentColor = Color(0xFF81C784),
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0x554CAF50)),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                ) {
+                                    Text(
+                                        text = "✓ All Present",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                    )
+                                }
+
+                                // 2. ALL ABSENT
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            try {
+                                                val sessionId = session?.session?.sessionId ?: return@launch
+                                                if (attendanceSearchQuery.isBlank()) {
+                                                    repository.markAll(sessionId, AttendanceStatus.ABSENT, canMarkAttendance)
+                                                    android.widget.Toast.makeText(context, "All ${records.size} students marked as Absent", android.widget.Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    displayedRecords.forEach {
+                                                        repository.mark(sessionId, it.recordId, AttendanceStatus.ABSENT, canMarkAttendance)
+                                                    }
+                                                    android.widget.Toast.makeText(context, "Marked ${displayedRecords.size} students as Absent", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.message ?: "Failed to mark students as Absent."
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0x30EF5350),
+                                        contentColor = Color(0xFFE57373),
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0x55EF5350)),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                ) {
+                                    Text(
+                                        text = "✕ All Absent",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                    )
+                                }
+
+                                // 3. ALL LEAVE
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            try {
+                                                val sessionId = session?.session?.sessionId ?: return@launch
+                                                if (attendanceSearchQuery.isBlank()) {
+                                                    repository.markAll(sessionId, AttendanceStatus.LEAVE, canMarkAttendance)
+                                                    android.widget.Toast.makeText(context, "All ${records.size} students marked as Leave", android.widget.Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    displayedRecords.forEach {
+                                                        repository.mark(sessionId, it.recordId, AttendanceStatus.LEAVE, canMarkAttendance)
+                                                    }
+                                                    android.widget.Toast.makeText(context, "Marked ${displayedRecords.size} students as Leave", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.message ?: "Failed to mark students as Leave."
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(40.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0x30FFA726),
+                                        contentColor = Color(0xFFFFB74D),
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0x55FFA726)),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                ) {
+                                    Text(
+                                        text = "⏱ All Leave",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             items(
                 displayedRecords,
                 key = { it.recordId },

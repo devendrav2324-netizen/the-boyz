@@ -61,9 +61,9 @@ object AppUpdateManager {
 
     const val DEFAULT_APK_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk/the-boyz-latest.apk"
     const val GITHUB_APK_BASE_URL = "https://github.com/devendrav2324-netizen/the-boyz/raw/main/apk"
-    const val DEFAULT_RELEASE_NOTES = "• Fix Request for Wrong Attendance Permission: Relocated dispute records into hostel subcollection to resolve cloud security permission denied error\n• Real-time Dispute Syncing: Attendance corrections submit seamlessly and sync with the administrator review tab"
-    const val DEFAULT_LATEST_VERSION_CODE = 44
-    const val DEFAULT_LATEST_VERSION_NAME = "1.13.32"
+    const val DEFAULT_RELEASE_NOTES = "• Report Header Optimization: Cleaned up date range and generation date/time line; removed overall range counts from multi-day breakdown card\n• Direct Bulk Marking: Added Select All Present, Absent, and Leave quick-action buttons in Attendance tab\n• Registration Clean-up: Removed inactive students tray section"
+    const val DEFAULT_LATEST_VERSION_CODE = 45
+    const val DEFAULT_LATEST_VERSION_NAME = "1.13.33"
     const val DEFAULT_FILE_SIZE_MB = "24.9"
 
     /**

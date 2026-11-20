@@ -328,21 +328,12 @@ class AttendanceReportPdfGenerator {
             // Header titles
             val wingPart = if (!wingName.isNullOrBlank()) "   |   Wing: $wingName" else ""
             val filterPart = if (!filterDescription.isNullOrBlank()) "   |   Filter: $filterDescription" else ""
-            val kpiHeaderSummary = if (isSingleDay) {
-                val p = dailyTotals.firstOrNull()?.present ?: 0
-                val a = dailyTotals.firstOrNull()?.absent ?: 0
-                val l = dailyTotals.firstOrNull()?.leave ?: 0
-                val u = dailyTotals.firstOrNull()?.unmarked ?: 0
-                "   |   Total Present: $p   |   Total Absent: $a   |   Total Leave: $l   |   Total Unmarked: $u"
-            } else {
-                "   |   Range Totals -> Present: $totalPresentSum   |   Absent: $totalAbsentSum   |   Leave: $totalLeaveSum   |   Unmarked: $totalUnmarkedSum"
-            }
 
             canvas.drawText("CGITR BOYS HOSTEL - ATTENDANCE REGISTER", marginLeft, currentY + 12f, titlePaint)
             currentY += 18f
 
             canvas.drawText(
-                "Date Range: $dateRangeTitle$kpiHeaderSummary$wingPart$filterPart   |   Residents: $totalStudents   |   Generated: $timestamp   |   Page $pageNumber",
+                "Date Range: $dateRangeTitle$wingPart$filterPart   |   Generated: $timestamp   |   Page $pageNumber",
                 marginLeft,
                 currentY + 6f,
                 subtitlePaint,
@@ -382,18 +373,10 @@ class AttendanceReportPdfGenerator {
                 canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBgPaint)
                 canvas.drawRoundRect(marginLeft, currentY, marginLeft + contentWidth, currentY + kpiCardHeight, 4f, 4f, kpiBoxBorderPaint)
 
-                // Top overall summary line
+                // Top overall section header (range totals removed per user request)
                 val topTextY = currentY + 12.5f
-                var topX = marginLeft + 10f
-                canvas.drawText("HOSTEL RANGE TOTALS ($totalStudents Residents):", topX, topTextY, kpiLabelPaint)
-                topX += 190f
-                canvas.drawText("TOTAL PRESENT: $totalPresentSum", topX, topTextY, kpiPresentPaint)
-                topX += 130f
-                canvas.drawText("TOTAL ABSENT: $totalAbsentSum", topX, topTextY, kpiAbsentPaint)
-                topX += 125f
-                canvas.drawText("TOTAL LEAVE: $totalLeaveSum", topX, topTextY, kpiLeavePaint)
-                topX += 120f
-                canvas.drawText("TOTAL UNMARKED: $totalUnmarkedSum", topX, topTextY, kpiUnmarkedPaint)
+                val topX = marginLeft + 10f
+                canvas.drawText("DAILY ATTENDANCE BREAKDOWN ($totalStudents Residents):", topX, topTextY, kpiLabelPaint)
 
                 canvas.drawLine(marginLeft, currentY + headerBlockHeight, marginLeft + contentWidth, currentY + headerBlockHeight, kpiDividerPaint)
 

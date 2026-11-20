@@ -78,6 +78,12 @@ interface AttendanceRepository {
         sessionId: String,
         isAdmin: Boolean = false,
     )
+
+    suspend fun markAll(
+        sessionId: String,
+        status: AttendanceStatus,
+        isAdmin: Boolean = false,
+    )
 }
 
 class RoomAttendanceRepository(
@@ -434,6 +440,37 @@ class RoomAttendanceRepository(
 
         sessionDao.clearSessionSelections(
             sessionId = sessionId,
+            updatedAtMillis = System.currentTimeMillis(),
+        )
+
+        val updatedSession = sessionDao.findSessionWithRecords(sessionId)
+        if (updatedSession != null) {
+            com.hostelattendance.data.sync.FirestoreSyncService.syncAttendanceSession(
+                hostelId = updatedSession.session.hostelId,
+                session = updatedSession.session,
+                records = updatedSession.records,
+            )
+        }
+        com.hostelattendance.data.backup.PersistentBackupManager.triggerAutoBackup()
+    }
+
+    override suspend fun markAll(
+        sessionId: String,
+        status: AttendanceStatus,
+        isAdmin: Boolean,
+    ) {
+        require(isAdmin) { "Attendance marking is restricted to authorized administrators and delegated markers." }
+
+        val sessionWithRecords = sessionDao.findSessionWithRecords(sessionId)
+            ?: error("Attendance session was not found.")
+
+        if (sessionWithRecords.session.state == AttendanceSessionState.SAVED.name) {
+            error("Attendance is locked. Click 'Reopen for administrator correction' to make changes.")
+        }
+
+        sessionDao.setAllSessionRecordsStatus(
+            sessionId = sessionId,
+            status = status.name,
             updatedAtMillis = System.currentTimeMillis(),
         )
 
